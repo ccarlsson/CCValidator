@@ -5,6 +5,7 @@ namespace CCValidator;
 public abstract class AbstractValidator<T> : IValidator<T>
 {
   private readonly List<object> _rules = [];
+  private readonly Stack<Func<T, bool>> _conditionStack = new();
 
   public CascadeMode CascadeMode { get; set; } = CascadeMode.Continue;
 
@@ -14,9 +15,40 @@ public abstract class AbstractValidator<T> : IValidator<T>
     var getter = expression.Compile();
 
     var rule = new PropertyRule<T, TProperty>(propertyName, getter, CascadeMode);
+
+    if (_conditionStack.Count != 0)
+    {
+      foreach (var condition in _conditionStack)
+        rule.ApplyCondition(condition);
+    }
+
     _rules.Add(rule);
 
     return new RuleBuilder<T, TProperty>(rule);
+  }
+
+  protected void When(Func<T, bool> predicate, Action action)
+  {
+    ArgumentNullException.ThrowIfNull(predicate);
+    ArgumentNullException.ThrowIfNull(action);
+
+    _conditionStack.Push(predicate);
+    try
+    {
+      action();
+    }
+    finally
+    {
+      _conditionStack.Pop();
+    }
+  }
+
+  protected void Unless(Func<T, bool> predicate, Action action)
+  {
+    ArgumentNullException.ThrowIfNull(predicate);
+    ArgumentNullException.ThrowIfNull(action);
+
+    When(x => !predicate(x), action);
   }
 
   public virtual ValidationResult Validate(T instance)

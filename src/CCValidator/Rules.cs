@@ -7,6 +7,8 @@ namespace CCValidator;
 public interface IRuleBuilderInitial<T, TProperty>
 {
   IRuleBuilderInitial<T, TProperty> Cascade(CascadeMode cascadeMode);
+  IRuleBuilderOptions<T, TProperty> When(Func<T, bool> predicate);
+  IRuleBuilderOptions<T, TProperty> Unless(Func<T, bool> predicate);
   IRuleBuilderOptions<T, TProperty> Must(Func<TProperty, bool> predicate);
   IRuleBuilderOptions<T, TProperty> MustAsync(Func<TProperty, CancellationToken, Task<bool>> predicate);
   IRuleBuilderOptions<T, TProperty> NotNull();
@@ -35,6 +37,20 @@ internal sealed class RuleBuilder<T, TProperty> : IRuleBuilderOptions<T, TProper
   public IRuleBuilderInitial<T, TProperty> Cascade(CascadeMode cascadeMode)
   {
     _rule.CascadeMode = cascadeMode;
+    return this;
+  }
+
+  public IRuleBuilderOptions<T, TProperty> When(Func<T, bool> predicate)
+  {
+    ArgumentNullException.ThrowIfNull(predicate);
+    _rule.ApplyCondition(predicate);
+    return this;
+  }
+
+  public IRuleBuilderOptions<T, TProperty> Unless(Func<T, bool> predicate)
+  {
+    ArgumentNullException.ThrowIfNull(predicate);
+    _rule.ApplyCondition(x => !predicate(x));
     return this;
   }
 
@@ -151,6 +167,7 @@ internal sealed class RuleBuilder<T, TProperty> : IRuleBuilderOptions<T, TProper
 internal sealed class PropertyRule<T, TProperty>
 {
   private readonly Func<T, TProperty> _getter;
+  private Func<T, bool>? _condition;
 
   private readonly List<PropertyValidator> _validators = [];
   private readonly List<AsyncPropertyValidator> _asyncValidators = [];
@@ -168,6 +185,18 @@ internal sealed class PropertyRule<T, TProperty>
   public CascadeMode CascadeMode { get; set; }
 
   public bool HasAsyncValidators => _asyncValidators.Count != 0;
+
+  public void ApplyCondition(Func<T, bool> predicate)
+  {
+    if (_condition is null)
+    {
+      _condition = predicate;
+      return;
+    }
+
+    var existing = _condition;
+    _condition = x => existing(x) && predicate(x);
+  }
 
   public void AddValidator(Func<object?, bool> predicate, string defaultMessage)
   {
@@ -216,6 +245,9 @@ internal sealed class PropertyRule<T, TProperty>
     if (HasAsyncValidators)
       throw new InvalidOperationException("This validator contains async rules and must be executed with ValidateAsync.");
 
+    if (_condition is not null && !_condition(instance))
+      yield break;
+
     var value = _getter(instance);
     object? boxed = value;
 
@@ -237,6 +269,9 @@ internal sealed class PropertyRule<T, TProperty>
   public async Task<IEnumerable<ValidationFailure>> ValidateAsync(T instance, CancellationToken token)
   {
     token.ThrowIfCancellationRequested();
+
+    if (_condition is not null && !_condition(instance))
+      return Array.Empty<ValidationFailure>();
 
     var failures = new List<ValidationFailure>();
 
