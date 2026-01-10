@@ -1,0 +1,234 @@
+\documentclass[12pt,technote]{IEEEtran}
+
+\usepackage[a4paper,margin=1in]{geometry}
+\usepackage{hyperref}
+\usepackage{enumitem}
+\usepackage{longtable}
+\usepackage{titlesec}
+
+\title{Software Requirements Specification\\
+Drop-In FluentValidation-Compatible Validator Library}
+\author{Version 1.0}
+\date{\today}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+This Software Requirements Specification (SRS) defines the functional and non-functional requirements for a .NET validation library intended to serve as a drop-in replacement for FluentValidation. The system targets .NET 10 and C\# 14, emphasizes minimal reflection, thread safety, Serilog-based diagnostics, and source-generator friendliness. This document follows IEEE SRS conventions and includes a traceability matrix and architectural overview.
+\end{abstract}
+
+\tableofcontents
+\newpage
+
+\section{Introduction}
+
+\subsection{Purpose}
+This SRS defines the requirements for a validation library that is API-compatible with FluentValidation. The primary goals are compatibility, performance, testability, and educational value for understanding validator architecture.
+
+\subsection{Scope}
+The system is a .NET 10 class library providing:
+\begin{itemize}[noitemsep]
+    \item Fluent rule definition
+    \item Validation execution (sync and async)
+    \item ASP.NET and DI integration
+    \item Serilog logging
+    \item Minimal reflection
+    \item Source-generator friendliness
+\end{itemize}
+
+\subsection{Definitions}
+\begin{itemize}[noitemsep]
+    \item \textbf{Validator} — Class defining validation rules for a model.
+    \item \textbf{Rule} — A validation condition applied to a property.
+    \item \textbf{ValidationContext} — Encapsulates the instance and metadata for validation.
+    \item \textbf{ValidationResult} — Contains validation outcome and failures.
+    \item \textbf{Drop-in replacement} — Compatible API enabling substitution for FluentValidation.
+\end{itemize}
+
+\subsection{References}
+FluentValidation documentation (behavioral reference only).
+
+\subsection{Overview}
+This document describes system features, constraints, functional and non-functional requirements, architecture, and traceability.
+
+\section{Overall Description}
+
+\subsection{Product Perspective}
+The validator is a standalone .NET library intended to mimic FluentValidation’s API and behavior. It integrates with ASP.NET model validation and DI.
+
+\subsection{Product Functions}
+\begin{itemize}[noitemsep]
+    \item Fluent rule definition (\texttt{RuleFor}, \texttt{NotEmpty}, etc.)
+    \item Validation execution (\texttt{Validate}, \texttt{ValidateAsync})
+    \item Error reporting (\texttt{ValidationResult}, \texttt{ValidationFailure})
+    \item ASP.NET integration
+    \item Logging via Serilog
+    \item Extensibility via custom validators
+\end{itemize}
+
+\subsection{User Characteristics}
+Users are .NET developers familiar with FluentValidation, DI, and ASP.NET.
+
+\subsection{Constraints}
+\begin{itemize}[noitemsep]
+    \item Must run on .NET 10 and C\# 14
+    \item Must minimize reflection
+    \item Must be thread-safe
+    \item Must integrate with Serilog
+    \item Must be source-generator friendly
+\end{itemize}
+
+\subsection{Assumptions and Dependencies}
+\begin{itemize}[noitemsep]
+    \item FluentValidation API is stable enough to model
+    \item Serilog is configured by the host application
+    \item A DI container is available
+\end{itemize}
+
+\section{Functional Requirements}
+
+\subsection{Rule Definition and Composition}
+\begin{itemize}[noitemsep]
+    \item \textbf{FR-1} The system shall provide \texttt{AbstractValidator<T>} with \texttt{RuleFor} methods.
+    \item \textbf{FR-2} The system shall support built-in validators: \texttt{NotNull}, \texttt{NotEmpty}, \texttt{Length}, \texttt{Matches}, \texttt{EmailAddress}, etc.
+    \item \textbf{FR-3} The system shall support chaining of validators.
+    \item \textbf{FR-4} The system shall support conditional rules (\texttt{When}, \texttt{Unless}).
+    \item \textbf{FR-5} The system shall support rule sets.
+\end{itemize}
+
+\subsection{Custom Validators}
+\begin{itemize}[noitemsep]
+    \item \textbf{FR-6} The system shall support custom validator classes.
+    \item \textbf{FR-7} The system shall support predicate-based validators (\texttt{Must}).
+    \item \textbf{FR-8} Custom validators shall support custom error messages and error codes.
+\end{itemize}
+
+\subsection{Validation Execution}
+\begin{itemize}[noitemsep]
+    \item \textbf{FR-9} The system shall provide \texttt{Validate} and \texttt{ValidateAsync}.
+    \item \textbf{FR-10} The system shall evaluate all rules by default.
+    \item \textbf{FR-11} The system shall support cascade modes.
+\end{itemize}
+
+\subsection{Error Messages and Localization}
+\begin{itemize}[noitemsep]
+    \item \textbf{FR-12} The system shall provide default error messages.
+    \item \textbf{FR-13} The system shall allow overriding messages via \texttt{WithMessage()}.
+    \item \textbf{FR-14} The system shall support localization.
+\end{itemize}
+
+\subsection{Configuration}
+\begin{itemize}[noitemsep]
+    \item \textbf{FR-15} The system shall provide global configuration for cascade mode and message providers.
+    \item \textbf{FR-16} Configuration shall be thread-safe.
+\end{itemize}
+
+\section{Non-Functional Requirements}
+
+\subsection{Performance and Reflection}
+\begin{itemize}[noitemsep]
+    \item \textbf{NFR-1} Reflection usage shall be minimized.
+    \item \textbf{NFR-2} Reflection results shall be cached.
+    \item \textbf{NFR-3} The system shall use compiled delegates where possible.
+\end{itemize}
+
+\subsection{Thread Safety}
+\begin{itemize}[noitemsep]
+    \item \textbf{NFR-4} Validators shall be safe for concurrent use.
+    \item \textbf{NFR-5} Shared state shall be immutable or synchronized.
+\end{itemize}
+
+\subsection{Testability}
+\begin{itemize}[noitemsep]
+    \item \textbf{NFR-6} The system shall exhibit deterministic behavior.
+    \item \textbf{NFR-7} The system shall avoid hidden global state.
+\end{itemize}
+
+\subsection{Source-Generator Friendliness}
+\begin{itemize}[noitemsep]
+    \item \textbf{NFR-8} Rule definition shall be separable from execution.
+    \item \textbf{NFR-9} APIs shall exist for precompiled rule metadata.
+\end{itemize}
+
+\subsection{Reliability}
+\begin{itemize}[noitemsep]
+    \item \textbf{NFR-10} Validation failures shall not throw exceptions.
+    \item \textbf{NFR-11} Internal errors shall be logged via Serilog.
+\end{itemize}
+
+\section{Architecture Overview}
+
+\subsection{Core Components}
+\begin{itemize}[noitemsep]
+    \item \textbf{Validator Engine} — Executes rules and produces results.
+    \item \textbf{Rule Builder} — Fluent API for constructing rules.
+    \item \textbf{Property Validators} — Built-in and custom validators.
+    \item \textbf{Execution Pipeline} — Applies rules with cascade logic.
+    \item \textbf{Integration Layer} — ASP.NET and DI support.
+    \item \textbf{Logging Layer} — Serilog instrumentation.
+\end{itemize}
+
+\subsection{Data Flow}
+\begin{enumerate}[noitemsep]
+    \item User defines validator via fluent API.
+    \item Validator compiles rules into delegates.
+    \item Validation engine executes rules.
+    \item Failures are collected into \texttt{ValidationResult}.
+    \item Serilog logs diagnostics.
+\end{enumerate}
+
+\section{Recommended Project Structure}
+
+\begin{verbatim}
+src/
+  Core/
+    AbstractValidator.cs
+    IValidator.cs
+    ValidationResult.cs
+    ValidationFailure.cs
+  Rules/
+    RuleBuilder.cs
+    PropertyValidators/
+  Execution/
+    ValidationContext.cs
+    ValidatorEngine.cs
+  Integration/
+    AspNet/
+    DependencyInjection/
+  Logging/
+    SerilogAdapter.cs
+
+tests/
+  CoreTests/
+  RuleTests/
+  IntegrationTests/
+\end{verbatim}
+
+\section{Traceability Matrix}
+
+\begin{longtable}{|p{3cm}|p{10cm}|}
+\hline
+\textbf{Requirement} & \textbf{Implementation Component} \\
+\hline
+FR-1--FR-5 & RuleBuilder, AbstractValidator \\
+FR-6--FR-8 & CustomValidator API \\
+FR-9--FR-11 & ValidatorEngine \\
+FR-12--FR-14 & MessageProvider, Localization \\
+FR-15--FR-16 & GlobalConfiguration \\
+NFR-1--NFR-3 & ReflectionCache, DelegateCompiler \\
+NFR-4--NFR-5 & Thread-safe configuration and caching \\
+NFR-6--NFR-7 & Test harness, deterministic pipeline \\
+NFR-8--NFR-9 & Source generator APIs \\
+NFR-10--NFR-11 & SerilogAdapter, exception handling \\
+\hline
+\end{longtable}
+
+\section{Glossary}
+\begin{itemize}[noitemsep]
+    \item \textbf{AOT} — Ahead-of-time compilation.
+    \item \textbf{DI} — Dependency Injection.
+    \item \textbf{Pipeline} — Sequence of rule evaluations.
+\end{itemize}
+
+\end{document}
