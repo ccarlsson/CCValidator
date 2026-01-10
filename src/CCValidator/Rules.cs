@@ -21,11 +21,17 @@ public interface IRuleBuilderInitial<T, TProperty>
   IRuleBuilderOptions<T, TProperty> Must(Func<TProperty, bool> predicate);
   IRuleBuilderOptions<T, TProperty> MustAsync(Func<TProperty, CancellationToken, Task<bool>> predicate);
   IRuleBuilderOptions<T, TProperty> Equal(TProperty comparisonValue);
+  IRuleBuilderOptions<T, TProperty> Equal(Expression<Func<T, TProperty>> comparisonExpression);
   IRuleBuilderOptions<T, TProperty> NotEqual(TProperty comparisonValue);
+  IRuleBuilderOptions<T, TProperty> NotEqual(Expression<Func<T, TProperty>> comparisonExpression);
   IRuleBuilderOptions<T, TProperty> GreaterThan(TProperty value);
+  IRuleBuilderOptions<T, TProperty> GreaterThan(Expression<Func<T, TProperty>> comparisonExpression);
   IRuleBuilderOptions<T, TProperty> GreaterThanOrEqualTo(TProperty value);
+  IRuleBuilderOptions<T, TProperty> GreaterThanOrEqualTo(Expression<Func<T, TProperty>> comparisonExpression);
   IRuleBuilderOptions<T, TProperty> LessThan(TProperty value);
+  IRuleBuilderOptions<T, TProperty> LessThan(Expression<Func<T, TProperty>> comparisonExpression);
   IRuleBuilderOptions<T, TProperty> LessThanOrEqualTo(TProperty value);
+  IRuleBuilderOptions<T, TProperty> LessThanOrEqualTo(Expression<Func<T, TProperty>> comparisonExpression);
   IRuleBuilderOptions<T, TProperty> InclusiveBetween(TProperty from, TProperty to);
   IRuleBuilderOptions<T, TProperty> ExclusiveBetween(TProperty from, TProperty to);
   IRuleBuilderOptions<T, TProperty> NotNull();
@@ -90,9 +96,27 @@ internal sealed class RuleBuilder<T, TProperty> : IRuleBuilderOptions<T, TProper
     return this;
   }
 
+  public IRuleBuilderOptions<T, TProperty> Equal(Expression<Func<T, TProperty>> comparisonExpression)
+  {
+    ArgumentNullException.ThrowIfNull(comparisonExpression);
+    var getter = comparisonExpression.Compile();
+
+    _rule.AddValidator((instance, v) => Equals(v, getter(instance)), "must be equal to the specified value");
+    return this;
+  }
+
   public IRuleBuilderOptions<T, TProperty> NotEqual(TProperty comparisonValue)
   {
     _rule.AddValidator(v => !Equals(v, comparisonValue), "must not be equal to the specified value");
+    return this;
+  }
+
+  public IRuleBuilderOptions<T, TProperty> NotEqual(Expression<Func<T, TProperty>> comparisonExpression)
+  {
+    ArgumentNullException.ThrowIfNull(comparisonExpression);
+    var getter = comparisonExpression.Compile();
+
+    _rule.AddValidator((instance, v) => !Equals(v, getter(instance)), "must not be equal to the specified value");
     return this;
   }
 
@@ -103,10 +127,44 @@ internal sealed class RuleBuilder<T, TProperty> : IRuleBuilderOptions<T, TProper
     return this;
   }
 
+  public IRuleBuilderOptions<T, TProperty> GreaterThan(Expression<Func<T, TProperty>> comparisonExpression)
+  {
+    ArgumentNullException.ThrowIfNull(comparisonExpression);
+    var getter = comparisonExpression.Compile();
+
+    _rule.AddValidator(
+      (instance, v) =>
+      {
+        if (v is null) return true;
+        var other = getter(instance);
+        if (other is null) return true;
+        return CompareObjects(v, other) > 0;
+      },
+      "must be greater than the specified value");
+    return this;
+  }
+
   public IRuleBuilderOptions<T, TProperty> GreaterThanOrEqualTo(TProperty value)
   {
     if (value is null) throw new ArgumentNullException(nameof(value));
     _rule.AddValidator(v => v is null || CompareObjects(v, value) >= 0, "must be greater than or equal to the specified value");
+    return this;
+  }
+
+  public IRuleBuilderOptions<T, TProperty> GreaterThanOrEqualTo(Expression<Func<T, TProperty>> comparisonExpression)
+  {
+    ArgumentNullException.ThrowIfNull(comparisonExpression);
+    var getter = comparisonExpression.Compile();
+
+    _rule.AddValidator(
+      (instance, v) =>
+      {
+        if (v is null) return true;
+        var other = getter(instance);
+        if (other is null) return true;
+        return CompareObjects(v, other) >= 0;
+      },
+      "must be greater than or equal to the specified value");
     return this;
   }
 
@@ -117,10 +175,44 @@ internal sealed class RuleBuilder<T, TProperty> : IRuleBuilderOptions<T, TProper
     return this;
   }
 
+  public IRuleBuilderOptions<T, TProperty> LessThan(Expression<Func<T, TProperty>> comparisonExpression)
+  {
+    ArgumentNullException.ThrowIfNull(comparisonExpression);
+    var getter = comparisonExpression.Compile();
+
+    _rule.AddValidator(
+      (instance, v) =>
+      {
+        if (v is null) return true;
+        var other = getter(instance);
+        if (other is null) return true;
+        return CompareObjects(v, other) < 0;
+      },
+      "must be less than the specified value");
+    return this;
+  }
+
   public IRuleBuilderOptions<T, TProperty> LessThanOrEqualTo(TProperty value)
   {
     if (value is null) throw new ArgumentNullException(nameof(value));
     _rule.AddValidator(v => v is null || CompareObjects(v, value) <= 0, "must be less than or equal to the specified value");
+    return this;
+  }
+
+  public IRuleBuilderOptions<T, TProperty> LessThanOrEqualTo(Expression<Func<T, TProperty>> comparisonExpression)
+  {
+    ArgumentNullException.ThrowIfNull(comparisonExpression);
+    var getter = comparisonExpression.Compile();
+
+    _rule.AddValidator(
+      (instance, v) =>
+      {
+        if (v is null) return true;
+        var other = getter(instance);
+        if (other is null) return true;
+        return CompareObjects(v, other) <= 0;
+      },
+      "must be less than or equal to the specified value");
     return this;
   }
 
@@ -367,6 +459,13 @@ internal sealed class PropertyRule<T, TProperty>
 
   public void AddValidator(Func<object?, bool> predicate, string defaultMessage)
   {
+    ArgumentNullException.ThrowIfNull(predicate);
+    AddValidator((_, value) => predicate(value), defaultMessage);
+  }
+
+  public void AddValidator(Func<T, object?, bool> predicate, string defaultMessage)
+  {
+    ArgumentNullException.ThrowIfNull(predicate);
     _validators.Add(new PropertyValidator(predicate, defaultMessage));
     _slots.Add(ValidatorSlot.ForSync(_validators.Count - 1));
   }
@@ -420,7 +519,7 @@ internal sealed class PropertyRule<T, TProperty>
 
     foreach (var validator in _validators)
     {
-      if (validator.Predicate(boxed)) continue;
+      if (validator.Predicate(instance, boxed)) continue;
 
       yield return new ValidationFailure(PropertyName, validator.EffectiveMessage)
       {
@@ -447,7 +546,7 @@ internal sealed class PropertyRule<T, TProperty>
 
     foreach (var validator in _validators)
     {
-      if (validator.Predicate(boxed))
+      if (validator.Predicate(instance, boxed))
         continue;
 
       failures.Add(new ValidationFailure(PropertyName, validator.EffectiveMessage)
@@ -481,7 +580,7 @@ internal sealed class PropertyRule<T, TProperty>
   }
 
   private readonly record struct PropertyValidator(
-      Func<object?, bool> Predicate,
+      Func<T, object?, bool> Predicate,
       string DefaultMessage)
   {
     public string? MessageOverride { get; init; }
