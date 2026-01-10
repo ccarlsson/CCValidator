@@ -4,7 +4,7 @@ public sealed class WhenUnlessTests
 {
   private sealed record Person(string? Name);
 
-  private sealed class RuleLevelWhenValidator : CCValidator.AbstractValidator<Person>
+  private sealed class RuleLevelWhenValidator : AbstractValidator<Person>
   {
     public RuleLevelWhenValidator()
     {
@@ -14,7 +14,7 @@ public sealed class WhenUnlessTests
     }
   }
 
-  private sealed class RuleLevelUnlessValidator : CCValidator.AbstractValidator<Person>
+  private sealed class RuleLevelUnlessValidator : AbstractValidator<Person>
   {
     public RuleLevelUnlessValidator()
     {
@@ -24,7 +24,7 @@ public sealed class WhenUnlessTests
     }
   }
 
-  private sealed class ValidatorLevelWhenValidator : CCValidator.AbstractValidator<Person>
+  private sealed class ValidatorLevelWhenValidator : AbstractValidator<Person>
   {
     public ValidatorLevelWhenValidator()
     {
@@ -36,7 +36,7 @@ public sealed class WhenUnlessTests
     }
   }
 
-  private sealed class ValidatorLevelUnlessValidator : CCValidator.AbstractValidator<Person>
+  private sealed class ValidatorLevelUnlessValidator : AbstractValidator<Person>
   {
     public ValidatorLevelUnlessValidator()
     {
@@ -48,7 +48,7 @@ public sealed class WhenUnlessTests
     }
   }
 
-  private sealed class AsyncRuleLevelWhenValidator : CCValidator.AbstractValidator<Person>
+  private sealed class AsyncRuleLevelWhenValidator : AbstractValidator<Person>
   {
     public AsyncRuleLevelWhenValidator()
     {

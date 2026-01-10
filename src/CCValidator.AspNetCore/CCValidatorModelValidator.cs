@@ -13,7 +13,7 @@ internal sealed class CCValidatorModelValidator : IModelValidator
       return Array.Empty<ModelValidationResult>();
 
     var modelType = context.ModelMetadata.ModelType;
-    var validatorType = typeof(CCValidator.IValidator<>).MakeGenericType(modelType);
+    var validatorType = typeof(IValidator<>).MakeGenericType(modelType);
 
     var validator = requestServices.GetService(validatorType);
     if (validator is null)
@@ -24,7 +24,7 @@ internal sealed class CCValidatorModelValidator : IModelValidator
       return Array.Empty<ModelValidationResult>();
 
     var resultObj = validateMethod.Invoke(validator, [context.Model]);
-    if (resultObj is not CCValidator.ValidationResult result)
+    if (resultObj is not ValidationResult result)
       return Array.Empty<ModelValidationResult>();
 
     return result.Errors.Select(f => new ModelValidationResult(f.PropertyName, f.ErrorMessage));

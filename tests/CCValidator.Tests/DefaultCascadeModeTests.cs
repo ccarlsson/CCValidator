@@ -4,7 +4,7 @@ public sealed class DefaultCascadeModeTests
 {
   private sealed record Person(string? Name);
 
-  private sealed class DefaultStopValidator : CCValidator.AbstractValidator<Person>
+  private sealed class DefaultStopValidator : AbstractValidator<Person>
   {
     public DefaultStopValidator()
     {
@@ -16,7 +16,7 @@ public sealed class DefaultCascadeModeTests
     }
   }
 
-  private sealed class DefaultContinueValidator : CCValidator.AbstractValidator<Person>
+  private sealed class DefaultContinueValidator : AbstractValidator<Person>
   {
     public DefaultContinueValidator()
     {
@@ -28,7 +28,7 @@ public sealed class DefaultCascadeModeTests
     }
   }
 
-  private sealed class DefaultStop_RuleOverridesToContinue : CCValidator.AbstractValidator<Person>
+  private sealed class DefaultStop_RuleOverridesToContinue : AbstractValidator<Person>
   {
     public DefaultStop_RuleOverridesToContinue()
     {

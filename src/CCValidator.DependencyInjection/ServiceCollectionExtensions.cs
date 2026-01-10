@@ -23,7 +23,7 @@ public static class ServiceCollectionExtensions
         continue;
 
       var validatorInterfaces = type.ImplementedInterfaces
-        .Where(i => i.IsGenericType && i.GetGenericTypeDefinition() == typeof(CCValidator.IValidator<>))
+        .Where(i => i.IsGenericType && i.GetGenericTypeDefinition() == typeof(IValidator<>))
         .Where(i => !i.ContainsGenericParameters)
         .ToArray();
 

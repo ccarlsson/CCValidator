@@ -4,11 +4,11 @@ public sealed class BasicValidationTests
 {
   private sealed record Person(string? Name);
 
-  private sealed class PersonValidator_NoRules : CCValidator.AbstractValidator<Person>
+  private sealed class PersonValidator_NoRules : AbstractValidator<Person>
   {
   }
 
-  private sealed class PersonValidator_NotNull : CCValidator.AbstractValidator<Person>
+  private sealed class PersonValidator_NotNull : AbstractValidator<Person>
   {
     public PersonValidator_NotNull()
     {
@@ -16,7 +16,7 @@ public sealed class BasicValidationTests
     }
   }
 
-  private sealed class PersonValidator_NotEmpty : CCValidator.AbstractValidator<Person>
+  private sealed class PersonValidator_NotEmpty : AbstractValidator<Person>
   {
     public PersonValidator_NotEmpty()
     {
@@ -24,7 +24,7 @@ public sealed class BasicValidationTests
     }
   }
 
-  private sealed class PersonValidator_MaxLenWithMessage : CCValidator.AbstractValidator<Person>
+  private sealed class PersonValidator_MaxLenWithMessage : AbstractValidator<Person>
   {
     public PersonValidator_MaxLenWithMessage()
     {

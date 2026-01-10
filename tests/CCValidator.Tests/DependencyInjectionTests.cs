@@ -7,7 +7,7 @@ public sealed class DependencyInjectionTests
 {
   private sealed record Person(string? Name);
 
-  private sealed class PersonValidator : CCValidator.AbstractValidator<Person>
+  private sealed class PersonValidator : AbstractValidator<Person>
   {
     public PersonValidator()
     {
@@ -24,7 +24,7 @@ public sealed class DependencyInjectionTests
 
     using var provider = services.BuildServiceProvider();
 
-    var validator = provider.GetRequiredService<CCValidator.IValidator<Person>>();
+    var validator = provider.GetRequiredService<IValidator<Person>>();
 
     Assert.NotNull(validator);
     Assert.IsType<PersonValidator>(validator);
@@ -42,9 +42,9 @@ public sealed class DependencyInjectionTests
     using var scope1 = provider.CreateScope();
     using var scope2 = provider.CreateScope();
 
-    var v1a = scope1.ServiceProvider.GetRequiredService<CCValidator.IValidator<Person>>();
-    var v1b = scope1.ServiceProvider.GetRequiredService<CCValidator.IValidator<Person>>();
-    var v2 = scope2.ServiceProvider.GetRequiredService<CCValidator.IValidator<Person>>();
+    var v1a = scope1.ServiceProvider.GetRequiredService<IValidator<Person>>();
+    var v1b = scope1.ServiceProvider.GetRequiredService<IValidator<Person>>();
+    var v2 = scope2.ServiceProvider.GetRequiredService<IValidator<Person>>();
 
     Assert.Same(v1a, v1b);
     Assert.NotSame(v1a, v2);
@@ -62,8 +62,8 @@ public sealed class DependencyInjectionTests
     using var scope1 = provider.CreateScope();
     using var scope2 = provider.CreateScope();
 
-    var v1 = scope1.ServiceProvider.GetRequiredService<CCValidator.IValidator<Person>>();
-    var v2 = scope2.ServiceProvider.GetRequiredService<CCValidator.IValidator<Person>>();
+    var v1 = scope1.ServiceProvider.GetRequiredService<IValidator<Person>>();
+    var v2 = scope2.ServiceProvider.GetRequiredService<IValidator<Person>>();
 
     Assert.Same(v1, v2);
   }

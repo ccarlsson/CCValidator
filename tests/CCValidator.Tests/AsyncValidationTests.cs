@@ -4,7 +4,7 @@ public sealed class AsyncValidationTests
 {
   private sealed record Person(string? Name);
 
-  private sealed class AsyncMustFalseValidator : CCValidator.AbstractValidator<Person>
+  private sealed class AsyncMustFalseValidator : AbstractValidator<Person>
   {
     public AsyncMustFalseValidator()
     {
@@ -18,7 +18,7 @@ public sealed class AsyncValidationTests
     }
   }
 
-  private sealed class AsyncStopValidator : CCValidator.AbstractValidator<Person>
+  private sealed class AsyncStopValidator : AbstractValidator<Person>
   {
     public AsyncStopValidator()
     {
@@ -39,7 +39,7 @@ public sealed class AsyncValidationTests
     }
   }
 
-  private sealed class AsyncCancellationValidator : CCValidator.AbstractValidator<Person>
+  private sealed class AsyncCancellationValidator : AbstractValidator<Person>
   {
     public AsyncCancellationValidator()
     {

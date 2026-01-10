@@ -4,7 +4,7 @@ public sealed class RuleSetTests
 {
   private sealed record Person(string? Name);
 
-  private sealed class PersonValidator_WithDefaultAndNamedRuleSet : CCValidator.AbstractValidator<Person>
+  private sealed class PersonValidator_WithDefaultAndNamedRuleSet : AbstractValidator<Person>
   {
     public PersonValidator_WithDefaultAndNamedRuleSet()
     {
@@ -23,7 +23,7 @@ public sealed class RuleSetTests
     }
   }
 
-  private sealed class PersonValidator_AsyncRuleSet : CCValidator.AbstractValidator<Person>
+  private sealed class PersonValidator_AsyncRuleSet : AbstractValidator<Person>
   {
     public PersonValidator_AsyncRuleSet()
     {
@@ -57,7 +57,7 @@ public sealed class RuleSetTests
   {
     var validator = new PersonValidator_WithDefaultAndNamedRuleSet();
 
-    var context = new CCValidator.ValidationContext<Person>(new Person("a"), "Names");
+    var context = new ValidationContext<Person>(new Person("a"), "Names");
     var result = validator.Validate(context);
 
     Assert.False(result.IsValid);
@@ -70,7 +70,7 @@ public sealed class RuleSetTests
   {
     var validator = new PersonValidator_WithDefaultAndNamedRuleSet();
 
-    var context = new CCValidator.ValidationContext<Person>(new Person(""), "Names")
+    var context = new ValidationContext<Person>(new Person(""), "Names")
     {
       IncludeRulesNotInRuleSet = true,
     };
@@ -88,7 +88,7 @@ public sealed class RuleSetTests
   {
     var validator = new PersonValidator_AsyncRuleSet();
 
-    var context = new CCValidator.ValidationContext<Person>(new Person("abc"), "Async");
+    var context = new ValidationContext<Person>(new Person("abc"), "Async");
     var result = await validator.ValidateAsync(context);
 
     Assert.False(result.IsValid);

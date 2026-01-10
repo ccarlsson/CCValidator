@@ -4,7 +4,7 @@ public sealed class CascadeModeTests
 {
   private sealed record Person(string? Name);
 
-  private sealed class ContinueValidator : CCValidator.AbstractValidator<Person>
+  private sealed class ContinueValidator : AbstractValidator<Person>
   {
     public ContinueValidator()
     {
@@ -15,7 +15,7 @@ public sealed class CascadeModeTests
     }
   }
 
-  private sealed class StopValidator : CCValidator.AbstractValidator<Person>
+  private sealed class StopValidator : AbstractValidator<Person>
   {
     public StopValidator()
     {
@@ -26,7 +26,7 @@ public sealed class CascadeModeTests
     }
   }
 
-  private sealed class StopValidator_SecondWouldAlsoFail : CCValidator.AbstractValidator<Person>
+  private sealed class StopValidator_SecondWouldAlsoFail : AbstractValidator<Person>
   {
     public StopValidator_SecondWouldAlsoFail()
     {

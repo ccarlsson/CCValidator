@@ -401,8 +401,8 @@ internal static class LengthAccessorCache
       .Where(i => i.IsGenericType)
       .ToArray();
 
-    var collectionIface = genericInterfaces.FirstOrDefault(i => i.GetGenericTypeDefinition() == typeof(System.Collections.Generic.ICollection<>))
-      ?? genericInterfaces.FirstOrDefault(i => i.GetGenericTypeDefinition() == typeof(System.Collections.Generic.IReadOnlyCollection<>));
+    var collectionIface = genericInterfaces.FirstOrDefault(i => i.GetGenericTypeDefinition() == typeof(ICollection<>))
+      ?? genericInterfaces.FirstOrDefault(i => i.GetGenericTypeDefinition() == typeof(IReadOnlyCollection<>));
 
     if (collectionIface is null)
       return null;

@@ -184,14 +184,14 @@ public sealed class BuiltInValidatorsTests
     Assert.Equal("lt", bad.Errors[0].ErrorMessage);
   }
 
-  private sealed class InlineValidator<T> : CCValidator.AbstractValidator<T>
+  private sealed class InlineValidator<T> : AbstractValidator<T>
   {
     public InlineValidator(Action<InlineValidator<T>> build)
     {
       build(this);
     }
 
-    public new CCValidator.IRuleBuilderInitial<T, TProperty> RuleFor<TProperty>(System.Linq.Expressions.Expression<Func<T, TProperty>> expression)
+    public new IRuleBuilderInitial<T, TProperty> RuleFor<TProperty>(Expression<Func<T, TProperty>> expression)
       => base.RuleFor(expression);
   }
 }

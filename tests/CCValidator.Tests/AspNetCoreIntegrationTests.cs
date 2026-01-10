@@ -15,7 +15,7 @@ public sealed class AspNetCoreIntegrationTests
 {
   private sealed record Person(string? Name);
 
-  private sealed class PersonValidator : CCValidator.AbstractValidator<Person>
+  private sealed class PersonValidator : AbstractValidator<Person>
   {
     public PersonValidator()
     {
@@ -43,7 +43,7 @@ public sealed class AspNetCoreIntegrationTests
   {
     IServiceCollection services = new ServiceCollection();
 
-    services.AddSingleton<CCValidator.IValidator<Person>, PersonValidator>();
+    services.AddSingleton<IValidator<Person>, PersonValidator>();
 
     using var provider = services.BuildServiceProvider();
 
