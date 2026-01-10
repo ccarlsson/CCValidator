@@ -6,6 +6,8 @@ public sealed class BuiltInValidatorsTests
 {
   private sealed record Person(int Age, int Score, string? Email, string? Name);
 
+  private sealed record CollectionsModel(int[]? Numbers, HashSet<int>? Set);
+
   [Fact]
   public void Equal_and_NotEqual_work()
   {
@@ -89,6 +91,24 @@ public sealed class BuiltInValidatorsTests
     Assert.False(bad.IsValid);
     Assert.Single(bad.Errors);
     Assert.Equal("email", bad.Errors[0].ErrorMessage);
+  }
+
+  [Fact]
+  public void Length_validators_support_arrays_and_generic_collections()
+  {
+    var validator = new InlineValidator<CollectionsModel>(v =>
+    {
+      v.RuleFor(x => x.Numbers).MinimumLength(2).WithMessage("min");
+      v.RuleFor(x => x.Set).MaximumLength(2).WithMessage("max");
+    });
+
+    Assert.True(validator.Validate(new CollectionsModel(Numbers: new[] { 1, 2 }, Set: new HashSet<int> { 1, 2 })).IsValid);
+
+    var bad = validator.Validate(new CollectionsModel(Numbers: new[] { 1 }, Set: new HashSet<int> { 1, 2, 3 }));
+    Assert.False(bad.IsValid);
+    Assert.Equal(2, bad.Errors.Count);
+    Assert.Equal("min", bad.Errors[0].ErrorMessage);
+    Assert.Equal("max", bad.Errors[1].ErrorMessage);
   }
 
   private sealed class InlineValidator<T> : CCValidator.AbstractValidator<T>
