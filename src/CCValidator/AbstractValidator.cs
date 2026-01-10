@@ -45,7 +45,28 @@ public abstract class AbstractValidator<T> : IValidator<T>
 
   public virtual Task<ValidationResult> ValidateAsync(T instance, CancellationToken token = default)
   {
+    return ValidateInternalAsync(instance, token);
+  }
+
+  private async Task<ValidationResult> ValidateInternalAsync(T instance, CancellationToken token)
+  {
     token.ThrowIfCancellationRequested();
-    return Task.FromResult(Validate(instance));
+
+    var failures = new List<ValidationFailure>();
+
+    foreach (var ruleObj in _rules)
+    {
+      switch (ruleObj)
+      {
+        case PropertyRule<T, string> r:
+          failures.AddRange(await r.ValidateAsync(instance, token).ConfigureAwait(false));
+          break;
+        default:
+          failures.AddRange(await ((dynamic)ruleObj).ValidateAsync(instance, token).ConfigureAwait(false));
+          break;
+      }
+    }
+
+    return new ValidationResult(failures);
   }
 }

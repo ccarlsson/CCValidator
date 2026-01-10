@@ -7,6 +7,8 @@ namespace CCValidator;
 public interface IRuleBuilderInitial<T, TProperty>
 {
   IRuleBuilderInitial<T, TProperty> Cascade(CascadeMode cascadeMode);
+  IRuleBuilderOptions<T, TProperty> Must(Func<TProperty, bool> predicate);
+  IRuleBuilderOptions<T, TProperty> MustAsync(Func<TProperty, CancellationToken, Task<bool>> predicate);
   IRuleBuilderOptions<T, TProperty> NotNull();
   IRuleBuilderOptions<T, TProperty> NotEmpty();
   IRuleBuilderOptions<T, TProperty> MaximumLength(int maximumLength);
@@ -39,6 +41,32 @@ internal sealed class RuleBuilder<T, TProperty> : IRuleBuilderOptions<T, TProper
   public IRuleBuilderOptions<T, TProperty> NotNull()
   {
     _rule.AddValidator(static v => v is not null, "must not be null");
+    return this;
+  }
+
+  public IRuleBuilderOptions<T, TProperty> Must(Func<TProperty, bool> predicate)
+  {
+    ArgumentNullException.ThrowIfNull(predicate);
+
+    _rule.AddValidator(
+      v => v is null ? predicate(default!) : predicate((TProperty)v),
+      "is not valid");
+
+    return this;
+  }
+
+  public IRuleBuilderOptions<T, TProperty> MustAsync(Func<TProperty, CancellationToken, Task<bool>> predicate)
+  {
+    ArgumentNullException.ThrowIfNull(predicate);
+
+    _rule.AddAsyncValidator(
+      async (v, ct) =>
+      {
+        if (v is null) return await predicate(default!, ct).ConfigureAwait(false);
+        return await predicate((TProperty)v, ct).ConfigureAwait(false);
+      },
+      "is not valid");
+
     return this;
   }
 
@@ -125,6 +153,8 @@ internal sealed class PropertyRule<T, TProperty>
   private readonly Func<T, TProperty> _getter;
 
   private readonly List<PropertyValidator> _validators = [];
+  private readonly List<AsyncPropertyValidator> _asyncValidators = [];
+  private readonly List<ValidatorSlot> _slots = [];
 
   public PropertyRule(string propertyName, Func<T, TProperty> getter, CascadeMode cascadeMode)
   {
@@ -137,29 +167,55 @@ internal sealed class PropertyRule<T, TProperty>
 
   public CascadeMode CascadeMode { get; set; }
 
+  public bool HasAsyncValidators => _asyncValidators.Count != 0;
+
   public void AddValidator(Func<object?, bool> predicate, string defaultMessage)
   {
     _validators.Add(new PropertyValidator(predicate, defaultMessage));
+    _slots.Add(ValidatorSlot.ForSync(_validators.Count - 1));
+  }
+
+  public void AddAsyncValidator(Func<object?, CancellationToken, Task<bool>> predicate, string defaultMessage)
+  {
+    _asyncValidators.Add(new AsyncPropertyValidator(predicate, defaultMessage));
+    _slots.Add(ValidatorSlot.ForAsync(_asyncValidators.Count - 1));
   }
 
   public void SetMessageOverrideForLastValidator(string message)
   {
-    if (_validators.Count == 0)
+    if (_slots.Count == 0)
       throw new InvalidOperationException("WithMessage must be used after a validator.");
 
-    _validators[^1] = _validators[^1] with { MessageOverride = message };
+    var slot = _slots[^1];
+    if (slot.IsAsync)
+    {
+      _asyncValidators[slot.Index] = _asyncValidators[slot.Index] with { MessageOverride = message };
+      return;
+    }
+
+    _validators[slot.Index] = _validators[slot.Index] with { MessageOverride = message };
   }
 
   public void SetErrorCodeOverrideForLastValidator(string errorCode)
   {
-    if (_validators.Count == 0)
+    if (_slots.Count == 0)
       throw new InvalidOperationException("WithErrorCode must be used after a validator.");
 
-    _validators[^1] = _validators[^1] with { ErrorCodeOverride = errorCode };
+    var slot = _slots[^1];
+    if (slot.IsAsync)
+    {
+      _asyncValidators[slot.Index] = _asyncValidators[slot.Index] with { ErrorCodeOverride = errorCode };
+      return;
+    }
+
+    _validators[slot.Index] = _validators[slot.Index] with { ErrorCodeOverride = errorCode };
   }
 
   public IEnumerable<ValidationFailure> Validate(T instance)
   {
+    if (HasAsyncValidators)
+      throw new InvalidOperationException("This validator contains async rules and must be executed with ValidateAsync.");
+
     var value = _getter(instance);
     object? boxed = value;
 
@@ -178,6 +234,50 @@ internal sealed class PropertyRule<T, TProperty>
     }
   }
 
+  public async Task<IEnumerable<ValidationFailure>> ValidateAsync(T instance, CancellationToken token)
+  {
+    token.ThrowIfCancellationRequested();
+
+    var failures = new List<ValidationFailure>();
+
+    var value = _getter(instance);
+    object? boxed = value;
+
+    foreach (var validator in _validators)
+    {
+      if (validator.Predicate(boxed))
+        continue;
+
+      failures.Add(new ValidationFailure(PropertyName, validator.EffectiveMessage)
+      {
+        AttemptedValue = boxed,
+        ErrorCode = validator.ErrorCodeOverride,
+      });
+
+      if (CascadeMode == CascadeMode.Stop)
+        return failures;
+    }
+
+    foreach (var validator in _asyncValidators)
+    {
+      token.ThrowIfCancellationRequested();
+
+      if (await validator.Predicate(boxed, token).ConfigureAwait(false))
+        continue;
+
+      failures.Add(new ValidationFailure(PropertyName, validator.EffectiveMessage)
+      {
+        AttemptedValue = boxed,
+        ErrorCode = validator.ErrorCodeOverride,
+      });
+
+      if (CascadeMode == CascadeMode.Stop)
+        return failures;
+    }
+
+    return failures;
+  }
+
   private readonly record struct PropertyValidator(
       Func<object?, bool> Predicate,
       string DefaultMessage)
@@ -185,6 +285,21 @@ internal sealed class PropertyRule<T, TProperty>
     public string? MessageOverride { get; init; }
     public string? ErrorCodeOverride { get; init; }
     public string EffectiveMessage => MessageOverride ?? DefaultMessage;
+  }
+
+  private readonly record struct AsyncPropertyValidator(
+      Func<object?, CancellationToken, Task<bool>> Predicate,
+      string DefaultMessage)
+  {
+    public string? MessageOverride { get; init; }
+    public string? ErrorCodeOverride { get; init; }
+    public string EffectiveMessage => MessageOverride ?? DefaultMessage;
+  }
+
+  private readonly record struct ValidatorSlot(bool IsAsync, int Index)
+  {
+    public static ValidatorSlot ForSync(int index) => new(false, index);
+    public static ValidatorSlot ForAsync(int index) => new(true, index);
   }
 }
 
