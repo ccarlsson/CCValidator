@@ -4,6 +4,15 @@ using System.Text.RegularExpressions;
 
 namespace CCValidator;
 
+internal interface IRule<T>
+{
+  string? RuleSet { get; }
+
+  IEnumerable<ValidationFailure> Validate(T instance);
+
+  Task<IEnumerable<ValidationFailure>> ValidateAsync(T instance, CancellationToken token);
+}
+
 public interface IRuleBuilderInitial<T, TProperty>
 {
   IRuleBuilderInitial<T, TProperty> Cascade(CascadeMode cascadeMode);
@@ -165,6 +174,7 @@ internal sealed class RuleBuilder<T, TProperty> : IRuleBuilderOptions<T, TProper
 }
 
 internal sealed class PropertyRule<T, TProperty>
+  : IRule<T>
 {
   private readonly Func<T, TProperty> _getter;
   private Func<T, bool>? _condition;
@@ -173,14 +183,17 @@ internal sealed class PropertyRule<T, TProperty>
   private readonly List<AsyncPropertyValidator> _asyncValidators = [];
   private readonly List<ValidatorSlot> _slots = [];
 
-  public PropertyRule(string propertyName, Func<T, TProperty> getter, CascadeMode cascadeMode)
+  public PropertyRule(string propertyName, Func<T, TProperty> getter, CascadeMode cascadeMode, string? ruleSet)
   {
     PropertyName = propertyName;
     _getter = getter;
     CascadeMode = cascadeMode;
+    RuleSet = ruleSet;
   }
 
   public string PropertyName { get; }
+
+  public string? RuleSet { get; }
 
   public CascadeMode CascadeMode { get; set; }
 

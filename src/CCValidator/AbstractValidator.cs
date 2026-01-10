@@ -4,8 +4,9 @@ namespace CCValidator;
 
 public abstract class AbstractValidator<T> : IValidator<T>
 {
-  private readonly List<object> _rules = [];
+  private readonly List<IRule<T>> _rules = [];
   private readonly Stack<Func<T, bool>> _conditionStack = new();
+  private readonly Stack<string> _ruleSetStack = new();
 
   public CascadeMode CascadeMode { get; set; } = CascadeMode.Continue;
 
@@ -14,7 +15,8 @@ public abstract class AbstractValidator<T> : IValidator<T>
     var propertyName = ExpressionHelpers.GetPropertyName(expression);
     var getter = expression.Compile();
 
-    var rule = new PropertyRule<T, TProperty>(propertyName, getter, CascadeMode);
+    var ruleSet = _ruleSetStack.Count == 0 ? null : _ruleSetStack.Peek();
+    var rule = new PropertyRule<T, TProperty>(propertyName, getter, CascadeMode, ruleSet);
 
     if (_conditionStack.Count != 0)
     {
@@ -25,6 +27,25 @@ public abstract class AbstractValidator<T> : IValidator<T>
     _rules.Add(rule);
 
     return new RuleBuilder<T, TProperty>(rule);
+  }
+
+  protected void RuleSet(string ruleSetName, Action action)
+  {
+    ArgumentNullException.ThrowIfNull(ruleSetName);
+    ArgumentNullException.ThrowIfNull(action);
+
+    if (ruleSetName.Length == 0)
+      throw new ArgumentException("RuleSet name cannot be empty.", nameof(ruleSetName));
+
+    _ruleSetStack.Push(ruleSetName);
+    try
+    {
+      action();
+    }
+    finally
+    {
+      _ruleSetStack.Pop();
+    }
   }
 
   protected void When(Func<T, bool> predicate, Action action)
@@ -53,23 +74,21 @@ public abstract class AbstractValidator<T> : IValidator<T>
 
   public virtual ValidationResult Validate(T instance)
   {
+    return Validate(new ValidationContext<T>(instance));
+  }
+
+  public virtual ValidationResult Validate(ValidationContext<T> context)
+  {
+    ArgumentNullException.ThrowIfNull(context);
+
     var failures = new List<ValidationFailure>();
 
     foreach (var ruleObj in _rules)
     {
-      // Avoid reflection by storing concrete generic rule instances.
-      // For now we use a type test per rule kind.
-      switch (ruleObj)
-      {
-        case PropertyRule<T, string> r:
-          failures.AddRange(r.Validate(instance));
-          break;
-        default:
-          // Fallback for other TProperty types via dynamic dispatch.
-          // This keeps the skeleton usable while we grow supported rule types.
-          failures.AddRange(((dynamic)ruleObj).Validate(instance));
-          break;
-      }
+      if (!ShouldRunRule(ruleObj.RuleSet, context))
+        continue;
+
+      failures.AddRange(ruleObj.Validate(context.InstanceToValidate));
     }
 
     return new ValidationResult(failures);
@@ -77,28 +96,38 @@ public abstract class AbstractValidator<T> : IValidator<T>
 
   public virtual Task<ValidationResult> ValidateAsync(T instance, CancellationToken token = default)
   {
-    return ValidateInternalAsync(instance, token);
+    return ValidateAsync(new ValidationContext<T>(instance), token);
   }
 
-  private async Task<ValidationResult> ValidateInternalAsync(T instance, CancellationToken token)
+  public virtual Task<ValidationResult> ValidateAsync(ValidationContext<T> context, CancellationToken token = default)
+  {
+    return ValidateInternalAsync(context, token);
+  }
+
+  private async Task<ValidationResult> ValidateInternalAsync(ValidationContext<T> context, CancellationToken token)
   {
     token.ThrowIfCancellationRequested();
+
+    ArgumentNullException.ThrowIfNull(context);
 
     var failures = new List<ValidationFailure>();
 
     foreach (var ruleObj in _rules)
     {
-      switch (ruleObj)
-      {
-        case PropertyRule<T, string> r:
-          failures.AddRange(await r.ValidateAsync(instance, token).ConfigureAwait(false));
-          break;
-        default:
-          failures.AddRange(await ((dynamic)ruleObj).ValidateAsync(instance, token).ConfigureAwait(false));
-          break;
-      }
+      if (!ShouldRunRule(ruleObj.RuleSet, context))
+        continue;
+
+      failures.AddRange(await ruleObj.ValidateAsync(context.InstanceToValidate, token).ConfigureAwait(false));
     }
 
     return new ValidationResult(failures);
+  }
+
+  private static bool ShouldRunRule(string? ruleSet, ValidationContext<T> context)
+  {
+    if (string.IsNullOrEmpty(ruleSet))
+      return context.IncludeRulesNotInRuleSet;
+
+    return context.IncludedRuleSets.Contains(ruleSet);
   }
 }
