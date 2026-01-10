@@ -18,8 +18,13 @@ public static class ServiceCollectionExtensions
       if (type.IsAbstract || type.IsInterface)
         continue;
 
+      // Skip open-generic types (DI can't register/instantiate these as-is).
+      if (type.ContainsGenericParameters)
+        continue;
+
       var validatorInterfaces = type.ImplementedInterfaces
         .Where(i => i.IsGenericType && i.GetGenericTypeDefinition() == typeof(CCValidator.IValidator<>))
+        .Where(i => !i.ContainsGenericParameters)
         .ToArray();
 
       if (validatorInterfaces.Length == 0)
