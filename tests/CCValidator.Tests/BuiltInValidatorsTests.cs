@@ -1,6 +1,7 @@
 namespace CCValidator.Tests;
 
 using System.Linq.Expressions;
+using System.Text.RegularExpressions;
 
 public sealed class BuiltInValidatorsTests
 {
@@ -109,6 +110,41 @@ public sealed class BuiltInValidatorsTests
     Assert.Equal(2, bad.Errors.Count);
     Assert.Equal("min", bad.Errors[0].ErrorMessage);
     Assert.Equal("max", bad.Errors[1].ErrorMessage);
+  }
+
+  [Fact]
+  public void Matches_with_options_honors_regex_options()
+  {
+    var validator = new InlineValidator<Person>(v =>
+    {
+      v.RuleFor(x => x.Name).Matches("^abc$", RegexOptions.IgnoreCase).WithMessage("matches");
+    });
+
+    Assert.True(validator.Validate(new Person(Age: 0, Score: 0, Email: null, Name: null)).IsValid);
+    Assert.True(validator.Validate(new Person(Age: 0, Score: 0, Email: null, Name: "ABC")).IsValid);
+
+    var bad = validator.Validate(new Person(Age: 0, Score: 0, Email: null, Name: "ab"));
+    Assert.False(bad.IsValid);
+    Assert.Single(bad.Errors);
+    Assert.Equal("matches", bad.Errors[0].ErrorMessage);
+  }
+
+  [Fact]
+  public void Matches_with_regex_instance_uses_given_regex()
+  {
+    var regex = new Regex("^abc$", RegexOptions.IgnoreCase);
+
+    var validator = new InlineValidator<Person>(v =>
+    {
+      v.RuleFor(x => x.Name).Matches(regex).WithMessage("matches");
+    });
+
+    Assert.True(validator.Validate(new Person(Age: 0, Score: 0, Email: null, Name: "ABC")).IsValid);
+
+    var bad = validator.Validate(new Person(Age: 0, Score: 0, Email: null, Name: "abcd"));
+    Assert.False(bad.IsValid);
+    Assert.Single(bad.Errors);
+    Assert.Equal("matches", bad.Errors[0].ErrorMessage);
   }
 
   private sealed class InlineValidator<T> : CCValidator.AbstractValidator<T>

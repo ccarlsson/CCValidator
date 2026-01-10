@@ -34,6 +34,8 @@ public interface IRuleBuilderInitial<T, TProperty>
   IRuleBuilderOptions<T, TProperty> MinimumLength(int minimumLength);
   IRuleBuilderOptions<T, TProperty> Length(int minimumLength, int maximumLength);
   IRuleBuilderOptions<T, TProperty> Matches(string pattern);
+  IRuleBuilderOptions<T, TProperty> Matches(string pattern, RegexOptions options);
+  IRuleBuilderOptions<T, TProperty> Matches(Regex regex);
   IRuleBuilderOptions<T, TProperty> EmailAddress();
 }
 
@@ -221,7 +223,18 @@ internal sealed class RuleBuilder<T, TProperty> : IRuleBuilderOptions<T, TProper
 
   public IRuleBuilderOptions<T, TProperty> Matches(string pattern)
   {
-    var regex = new Regex(pattern, RegexOptions.Compiled);
+    return Matches(pattern, RegexOptions.None);
+  }
+
+  public IRuleBuilderOptions<T, TProperty> Matches(string pattern, RegexOptions options)
+  {
+    ArgumentNullException.ThrowIfNull(pattern);
+    return Matches(new Regex(pattern, options | RegexOptions.Compiled | RegexOptions.CultureInvariant));
+  }
+
+  public IRuleBuilderOptions<T, TProperty> Matches(Regex regex)
+  {
+    ArgumentNullException.ThrowIfNull(regex);
     _rule.AddValidator(v => v is null || (v is string s && regex.IsMatch(s)), "is not in the correct format");
     return this;
   }
