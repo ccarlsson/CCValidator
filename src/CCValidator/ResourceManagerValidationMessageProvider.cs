@@ -3,6 +3,10 @@ using System.Resources;
 
 namespace CCValidator;
 
+/// <summary>
+/// Message provider backed by a <see cref="ResourceManager"/>.
+/// Resource keys are the method names (e.g. "NotNull", "MaximumLength").
+/// </summary>
 public sealed class ResourceManagerValidationMessageProvider : IValidationMessageProvider
 {
   private readonly ResourceManager _resourceManager;

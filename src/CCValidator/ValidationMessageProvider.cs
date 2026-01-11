@@ -1,5 +1,8 @@
 namespace CCValidator;
 
+/// <summary>
+/// Provides default validation messages for built-in validators.
+/// </summary>
 public interface IValidationMessageProvider
 {
   string NotNull();
@@ -25,6 +28,9 @@ public interface IValidationMessageProvider
   string EmailAddress();
 }
 
+/// <summary>
+/// Default English messages.
+/// </summary>
 public sealed class DefaultValidationMessageProvider : IValidationMessageProvider
 {
   public static readonly DefaultValidationMessageProvider Instance = new();

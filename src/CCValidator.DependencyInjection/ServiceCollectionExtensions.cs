@@ -4,8 +4,14 @@ using Microsoft.Extensions.DependencyInjection.Extensions;
 
 namespace CCValidator.DependencyInjection;
 
+/// <summary>
+/// ServiceCollection extensions for registering CCValidator and validators.
+/// </summary>
 public static class ServiceCollectionExtensions
 {
+  /// <summary>
+  /// Registers a default singleton <see cref="CCValidatorOptions"/> if not already registered.
+  /// </summary>
   public static IServiceCollection AddCCValidator(this IServiceCollection services)
   {
     ArgumentNullException.ThrowIfNull(services);
@@ -14,6 +20,9 @@ public static class ServiceCollectionExtensions
     return services;
   }
 
+  /// <summary>
+  /// Registers a singleton <see cref="CCValidatorOptions"/> instance.
+  /// </summary>
   public static IServiceCollection AddCCValidator(this IServiceCollection services, CCValidatorOptions options)
   {
     ArgumentNullException.ThrowIfNull(services);
@@ -23,6 +32,9 @@ public static class ServiceCollectionExtensions
     return services;
   }
 
+  /// <summary>
+  /// Registers <see cref="CCValidatorOptions"/> using a builder callback.
+  /// </summary>
   public static IServiceCollection AddCCValidator(
     this IServiceCollection services,
     Action<CCValidatorOptionsBuilder> configure)
@@ -36,6 +48,9 @@ public static class ServiceCollectionExtensions
     return services.AddCCValidator(builder.Build());
   }
 
+  /// <summary>
+  /// Registers all non-generic validators in an assembly as <c>IValidator&lt;T&gt;</c>.
+  /// </summary>
   public static IServiceCollection AddValidatorsFromAssembly(
     this IServiceCollection services,
     Assembly assembly,
@@ -74,6 +89,9 @@ public static class ServiceCollectionExtensions
     return services;
   }
 
+  /// <summary>
+  /// Registers validators from the assembly containing <typeparamref name="T"/>.
+  /// </summary>
   public static IServiceCollection AddValidatorsFromAssemblyContaining<T>(
     this IServiceCollection services,
     ServiceLifetime lifetime = ServiceLifetime.Scoped)

@@ -6,8 +6,14 @@ using Microsoft.Extensions.Options;
 
 namespace CCValidator.AspNetCore;
 
+/// <summary>
+/// ASP.NET Core MVC integration for CCValidator.
+/// </summary>
 public static class ServiceCollectionExtensions
 {
+  /// <summary>
+  /// Registers MVC model validation integration that resolves <c>IValidator&lt;T&gt;</c> from DI.
+  /// </summary>
   public static IServiceCollection AddCCValidatorAutoValidation(this IServiceCollection services)
   {
     ArgumentNullException.ThrowIfNull(services);
@@ -17,6 +23,9 @@ public static class ServiceCollectionExtensions
     return services;
   }
 
+  /// <summary>
+  /// Registers MVC model validation integration on an MVC builder.
+  /// </summary>
   public static IMvcBuilder AddCCValidatorAutoValidation(this IMvcBuilder builder)
   {
     ArgumentNullException.ThrowIfNull(builder);

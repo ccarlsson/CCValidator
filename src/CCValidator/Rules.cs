@@ -13,12 +13,36 @@ internal interface IRule<T>
   Task<IEnumerable<ValidationFailure>> ValidateAsync(T instance, CancellationToken token);
 }
 
+/// <summary>
+/// Entry point for building validation rules for a specific property.
+/// </summary>
+/// <typeparam name="T">Instance type.</typeparam>
+/// <typeparam name="TProperty">Property type.</typeparam>
 public interface IRuleBuilderInitial<T, TProperty>
 {
+  /// <summary>
+  /// Overrides cascade mode for this rule.
+  /// </summary>
   IRuleBuilderInitial<T, TProperty> Cascade(CascadeMode cascadeMode);
+
+  /// <summary>
+  /// Applies a condition to this rule.
+  /// </summary>
   IRuleBuilderOptions<T, TProperty> When(Func<T, bool> predicate);
+
+  /// <summary>
+  /// Applies the inverse of <paramref name="predicate"/> to this rule.
+  /// </summary>
   IRuleBuilderOptions<T, TProperty> Unless(Func<T, bool> predicate);
+
+  /// <summary>
+  /// Adds a custom predicate validator.
+  /// </summary>
   IRuleBuilderOptions<T, TProperty> Must(Func<TProperty, bool> predicate);
+
+  /// <summary>
+  /// Adds a custom async predicate validator.
+  /// </summary>
   IRuleBuilderOptions<T, TProperty> MustAsync(Func<TProperty, CancellationToken, Task<bool>> predicate);
   IRuleBuilderOptions<T, TProperty> Equal(TProperty comparisonValue);
   IRuleBuilderOptions<T, TProperty> Equal(Expression<Func<T, TProperty>> comparisonExpression);
@@ -45,9 +69,19 @@ public interface IRuleBuilderInitial<T, TProperty>
   IRuleBuilderOptions<T, TProperty> EmailAddress();
 }
 
+/// <summary>
+/// Rule builder that also allows setting message and error code.
+/// </summary>
 public interface IRuleBuilderOptions<T, TProperty> : IRuleBuilderInitial<T, TProperty>
 {
+  /// <summary>
+  /// Overrides the default message for the most recently added validator.
+  /// </summary>
   IRuleBuilderOptions<T, TProperty> WithMessage(string message);
+
+  /// <summary>
+  /// Overrides the error code for the most recently added validator.
+  /// </summary>
   IRuleBuilderOptions<T, TProperty> WithErrorCode(string errorCode);
 }
 

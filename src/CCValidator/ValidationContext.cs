@@ -1,7 +1,15 @@
 namespace CCValidator;
 
+/// <summary>
+/// Context passed to validation that controls ruleset selection.
+/// </summary>
+/// <typeparam name="T">Instance type.</typeparam>
 public sealed class ValidationContext<T>
 {
+  /// <summary>
+  /// Create a context that includes rules not in a named ruleset.
+  /// </summary>
+  /// <param name="instance">Instance to validate.</param>
   public ValidationContext(T instance)
   {
     InstanceToValidate = instance;
@@ -9,6 +17,11 @@ public sealed class ValidationContext<T>
     IncludeRulesNotInRuleSet = true;
   }
 
+  /// <summary>
+  /// Create a context that includes only the given rulesets.
+  /// </summary>
+  /// <param name="instance">Instance to validate.</param>
+  /// <param name="ruleSets">Rulesets to include.</param>
   public ValidationContext(T instance, params string[] ruleSets)
   {
     InstanceToValidate = instance;
@@ -16,8 +29,14 @@ public sealed class ValidationContext<T>
     IncludeRulesNotInRuleSet = false;
   }
 
+  /// <summary>
+  /// The instance being validated.
+  /// </summary>
   public T InstanceToValidate { get; }
 
+  /// <summary>
+  /// Named rulesets included by this context.
+  /// </summary>
   public IReadOnlySet<string> IncludedRuleSets { get; }
 
   /// <summary>

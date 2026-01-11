@@ -2,6 +2,9 @@ using System.Linq.Expressions;
 
 namespace CCValidator;
 
+/// <summary>
+/// Base type for defining validation rules for <typeparamref name="T"/>.
+/// </summary>
 public abstract class AbstractValidator<T> : IValidator<T>
 {
   private readonly List<IRule<T>> _rules = [];
@@ -14,6 +17,10 @@ public abstract class AbstractValidator<T> : IValidator<T>
   {
   }
 
+  /// <summary>
+  /// Create a validator using the provided options.
+  /// </summary>
+  /// <param name="options">Options controlling defaults and behavior.</param>
   protected AbstractValidator(CCValidatorOptions? options)
   {
     _options = options ?? new CCValidatorOptions();
@@ -26,6 +33,12 @@ public abstract class AbstractValidator<T> : IValidator<T>
 
   public IValidationMessageProvider MessageProvider { get; set; }
 
+  /// <summary>
+  /// Define a rule for a property.
+  /// </summary>
+  /// <typeparam name="TProperty">Property type.</typeparam>
+  /// <param name="expression">Expression selecting the property.</param>
+  /// <returns>A rule builder for chaining validators.</returns>
   protected IRuleBuilderInitial<T, TProperty> RuleFor<TProperty>(Expression<Func<T, TProperty>> expression)
   {
     var propertyName = ExpressionHelpers.GetPropertyName(expression);
@@ -45,6 +58,9 @@ public abstract class AbstractValidator<T> : IValidator<T>
     return new RuleBuilder<T, TProperty>(rule, MessageProvider);
   }
 
+  /// <summary>
+  /// Execute rules inside a named ruleset.
+  /// </summary>
   protected void RuleSet(string ruleSetName, Action action)
   {
     ArgumentNullException.ThrowIfNull(ruleSetName);
@@ -64,6 +80,9 @@ public abstract class AbstractValidator<T> : IValidator<T>
     }
   }
 
+  /// <summary>
+  /// Apply a condition to all rules defined inside <paramref name="action"/>.
+  /// </summary>
   protected void When(Func<T, bool> predicate, Action action)
   {
     ArgumentNullException.ThrowIfNull(predicate);
@@ -80,6 +99,9 @@ public abstract class AbstractValidator<T> : IValidator<T>
     }
   }
 
+  /// <summary>
+  /// Apply the inverse of <paramref name="predicate"/> to all rules defined inside <paramref name="action"/>.
+  /// </summary>
   protected void Unless(Func<T, bool> predicate, Action action)
   {
     ArgumentNullException.ThrowIfNull(predicate);
@@ -88,11 +110,15 @@ public abstract class AbstractValidator<T> : IValidator<T>
     When(x => !predicate(x), action);
   }
 
+  /// <inheritdoc />
   public virtual ValidationResult Validate(T instance)
   {
     return Validate(new ValidationContext<T>(instance));
   }
 
+  /// <summary>
+  /// Validate using a context (enables ruleset selection).
+  /// </summary>
   public virtual ValidationResult Validate(ValidationContext<T> context)
   {
     ArgumentNullException.ThrowIfNull(context);
@@ -110,11 +136,15 @@ public abstract class AbstractValidator<T> : IValidator<T>
     return new ValidationResult(failures);
   }
 
+  /// <inheritdoc />
   public virtual Task<ValidationResult> ValidateAsync(T instance, CancellationToken token = default)
   {
     return ValidateAsync(new ValidationContext<T>(instance), token);
   }
 
+  /// <summary>
+  /// Validate asynchronously using a context (enables ruleset selection).
+  /// </summary>
   public virtual Task<ValidationResult> ValidateAsync(ValidationContext<T> context, CancellationToken token = default)
   {
     return ValidateInternalAsync(context, token);
