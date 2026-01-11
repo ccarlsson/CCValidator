@@ -44,6 +44,14 @@ public interface IRuleBuilderInitial<T, TProperty>
   /// Adds a custom async predicate validator.
   /// </summary>
   IRuleBuilderOptions<T, TProperty> MustAsync(Func<TProperty, CancellationToken, Task<bool>> predicate);
+
+  /// <summary>
+  /// Adds a nested validator for complex object graphs.
+  /// </summary>
+  /// <remarks>
+  /// If the property value is <see langword="null"/>, the nested validator is not executed.
+  /// </remarks>
+  IRuleBuilderOptions<T, TProperty> SetValidator<TChild>(IValidator<TChild> validator);
   IRuleBuilderOptions<T, TProperty> Equal(TProperty comparisonValue);
   IRuleBuilderOptions<T, TProperty> Equal(Expression<Func<T, TProperty>> comparisonExpression);
   IRuleBuilderOptions<T, TProperty> NotEqual(TProperty comparisonValue);
@@ -300,6 +308,20 @@ internal sealed class RuleBuilder<T, TProperty> : IRuleBuilderOptions<T, TProper
     return this;
   }
 
+  public IRuleBuilderOptions<T, TProperty> SetValidator<TChild>(IValidator<TChild> validator)
+  {
+    ArgumentNullException.ThrowIfNull(validator);
+    if (!typeof(TChild).IsAssignableFrom(typeof(TProperty)))
+    {
+      throw new ArgumentException(
+        $"Validator type {typeof(TChild).FullName} is not compatible with property type {typeof(TProperty).FullName}.",
+        nameof(validator));
+    }
+
+    _rule.AddChildValidator(validator);
+    return this;
+  }
+
   public IRuleBuilderOptions<T, TProperty> NotEmpty()
   {
     _rule.AddValidator(NotEmptyImpl, _messages.NotEmpty());
@@ -464,6 +486,7 @@ internal sealed class PropertyRule<T, TProperty>
 
   private readonly List<PropertyValidator> _validators = [];
   private readonly List<AsyncPropertyValidator> _asyncValidators = [];
+  private readonly List<ChildValidatorRunner> _childValidators = [];
   private readonly List<ValidatorSlot> _slots = [];
 
   public PropertyRule(string propertyName, Func<T, TProperty> getter, CascadeMode cascadeMode, string? ruleSet, CCValidatorOptions options)
@@ -514,13 +537,26 @@ internal sealed class PropertyRule<T, TProperty>
     _slots.Add(ValidatorSlot.ForAsync(_asyncValidators.Count - 1));
   }
 
+  public void AddChildValidator<TChild>(IValidator<TChild> validator)
+  {
+    ArgumentNullException.ThrowIfNull(validator);
+    _childValidators.Add(new ChildValidatorRunner(
+      Validate: value => validator.Validate((TChild)value),
+      ValidateAsync: (value, token) => validator.ValidateAsync((TChild)value, token)));
+    _slots.Add(ValidatorSlot.ForChild(_childValidators.Count - 1));
+  }
+
   public void SetMessageOverrideForLastValidator(string message)
   {
     if (_slots.Count == 0)
       throw new InvalidOperationException("WithMessage must be used after a validator.");
 
     var slot = _slots[^1];
-    if (slot.IsAsync)
+
+    if (slot.Kind == ValidatorSlotKind.Child)
+      throw new InvalidOperationException("WithMessage is not supported after SetValidator.");
+
+    if (slot.Kind == ValidatorSlotKind.Async)
     {
       _asyncValidators[slot.Index] = _asyncValidators[slot.Index] with { MessageOverride = message };
       return;
@@ -535,7 +571,11 @@ internal sealed class PropertyRule<T, TProperty>
       throw new InvalidOperationException("WithErrorCode must be used after a validator.");
 
     var slot = _slots[^1];
-    if (slot.IsAsync)
+
+    if (slot.Kind == ValidatorSlotKind.Child)
+      throw new InvalidOperationException("WithErrorCode is not supported after SetValidator.");
+
+    if (slot.Kind == ValidatorSlotKind.Async)
     {
       _asyncValidators[slot.Index] = _asyncValidators[slot.Index] with { ErrorCodeOverride = errorCode };
       return;
@@ -595,39 +635,95 @@ internal sealed class PropertyRule<T, TProperty>
 
     object? boxed = value;
 
-    foreach (var validator in _validators)
+    foreach (var slot in _slots)
     {
-      bool ok;
-      ValidationFailure? predicateFailure = null;
-      try
+      switch (slot.Kind)
       {
-        ok = validator.Predicate(instance, boxed);
+        case ValidatorSlotKind.Sync:
+        {
+          var validator = _validators[slot.Index];
+
+          bool ok;
+          ValidationFailure? predicateFailure = null;
+          try
+          {
+            ok = validator.Predicate(instance, boxed);
+          }
+          catch (Exception ex)
+          {
+            if (ShouldThrow(ex)) throw;
+            ok = false;
+            predicateFailure = CreateInternalFailure(ex, boxed);
+          }
+
+          if (predicateFailure is not null)
+          {
+            yield return predicateFailure;
+            if (CascadeMode == CascadeMode.Stop)
+              yield break;
+            break;
+          }
+
+          if (ok) break;
+
+          yield return new ValidationFailure(PropertyName, validator.EffectiveMessage)
+          {
+            AttemptedValue = boxed,
+            ErrorCode = validator.ErrorCodeOverride,
+          };
+
+          if (CascadeMode == CascadeMode.Stop)
+            yield break;
+
+          break;
+        }
+
+        case ValidatorSlotKind.Child:
+        {
+          if (boxed is null)
+            break;
+
+          var childValidator = _childValidators[slot.Index];
+
+          ValidationResult? childResult = null;
+          ValidationFailure? childExceptionFailure = null;
+          try
+          {
+            childResult = childValidator.Validate(boxed);
+          }
+          catch (Exception ex)
+          {
+            if (ShouldThrow(ex)) throw;
+            childExceptionFailure = CreateInternalFailure(ex, boxed);
+          }
+
+          if (childExceptionFailure is not null)
+          {
+            yield return childExceptionFailure;
+            if (CascadeMode == CascadeMode.Stop)
+              yield break;
+            break;
+          }
+
+          var any = false;
+          foreach (var failure in childResult!.Errors)
+          {
+            any = true;
+            yield return PrefixFailure(PropertyName, failure);
+          }
+
+          if (any && CascadeMode == CascadeMode.Stop)
+            yield break;
+
+          break;
+        }
+
+        case ValidatorSlotKind.Async:
+          throw new InvalidOperationException("This validator contains async rules and must be executed with ValidateAsync.");
+
+        default:
+          throw new InvalidOperationException($"Unknown validator slot kind: {slot.Kind}.");
       }
-      catch (Exception ex)
-      {
-        if (ShouldThrow(ex)) throw;
-        ok = false;
-        predicateFailure = CreateInternalFailure(ex, boxed);
-      }
-
-      if (predicateFailure is not null)
-      {
-        yield return predicateFailure;
-        if (CascadeMode == CascadeMode.Stop)
-          yield break;
-        continue;
-      }
-
-      if (ok) continue;
-
-      yield return new ValidationFailure(PropertyName, validator.EffectiveMessage)
-      {
-        AttemptedValue = boxed,
-        ErrorCode = validator.ErrorCodeOverride,
-      };
-
-      if (CascadeMode == CascadeMode.Stop)
-        yield break;
     }
   }
 
@@ -667,66 +763,118 @@ internal sealed class PropertyRule<T, TProperty>
 
     object? boxed = value;
 
-    foreach (var validator in _validators)
-    {
-      bool ok;
-      try
-      {
-        ok = validator.Predicate(instance, boxed);
-      }
-      catch (Exception ex)
-      {
-        if (ShouldThrow(ex, token)) throw;
-
-        failures.Add(CreateInternalFailure(ex, boxed));
-        if (CascadeMode == CascadeMode.Stop)
-          return failures;
-
-        continue;
-      }
-
-      if (ok) continue;
-
-      failures.Add(new ValidationFailure(PropertyName, validator.EffectiveMessage)
-      {
-        AttemptedValue = boxed,
-        ErrorCode = validator.ErrorCodeOverride,
-      });
-
-      if (CascadeMode == CascadeMode.Stop)
-        return failures;
-    }
-
-    foreach (var validator in _asyncValidators)
+    foreach (var slot in _slots)
     {
       token.ThrowIfCancellationRequested();
 
-      bool ok;
-      try
+      switch (slot.Kind)
       {
-        ok = await validator.Predicate(boxed, token).ConfigureAwait(false);
+        case ValidatorSlotKind.Sync:
+        {
+          var validator = _validators[slot.Index];
+
+          bool ok;
+          try
+          {
+            ok = validator.Predicate(instance, boxed);
+          }
+          catch (Exception ex)
+          {
+            if (ShouldThrow(ex, token)) throw;
+
+            failures.Add(CreateInternalFailure(ex, boxed));
+            if (CascadeMode == CascadeMode.Stop)
+              return failures;
+
+            break;
+          }
+
+          if (ok) break;
+
+          failures.Add(new ValidationFailure(PropertyName, validator.EffectiveMessage)
+          {
+            AttemptedValue = boxed,
+            ErrorCode = validator.ErrorCodeOverride,
+          });
+
+          if (CascadeMode == CascadeMode.Stop)
+            return failures;
+
+          break;
+        }
+
+        case ValidatorSlotKind.Async:
+        {
+          var validator = _asyncValidators[slot.Index];
+
+          bool ok;
+          try
+          {
+            ok = await validator.Predicate(boxed, token).ConfigureAwait(false);
+          }
+          catch (Exception ex)
+          {
+            if (ShouldThrow(ex, token)) throw;
+
+            failures.Add(CreateInternalFailure(ex, boxed));
+            if (CascadeMode == CascadeMode.Stop)
+              return failures;
+
+            break;
+          }
+
+          if (ok) break;
+
+          failures.Add(new ValidationFailure(PropertyName, validator.EffectiveMessage)
+          {
+            AttemptedValue = boxed,
+            ErrorCode = validator.ErrorCodeOverride,
+          });
+
+          if (CascadeMode == CascadeMode.Stop)
+            return failures;
+
+          break;
+        }
+
+        case ValidatorSlotKind.Child:
+        {
+          if (boxed is null)
+            break;
+
+          var childValidator = _childValidators[slot.Index];
+
+          ValidationResult childResult;
+          try
+          {
+            childResult = await childValidator.ValidateAsync(boxed, token).ConfigureAwait(false);
+          }
+          catch (Exception ex)
+          {
+            if (ShouldThrow(ex, token)) throw;
+
+            failures.Add(CreateInternalFailure(ex, boxed));
+            if (CascadeMode == CascadeMode.Stop)
+              return failures;
+
+            break;
+          }
+
+          if (childResult.Errors.Count == 0)
+            break;
+
+          foreach (var failure in childResult.Errors)
+            failures.Add(PrefixFailure(PropertyName, failure));
+
+          if (CascadeMode == CascadeMode.Stop)
+            return failures;
+
+          break;
+        }
+
+        default:
+          throw new InvalidOperationException($"Unknown validator slot kind: {slot.Kind}.");
       }
-      catch (Exception ex)
-      {
-        if (ShouldThrow(ex, token)) throw;
-
-        failures.Add(CreateInternalFailure(ex, boxed));
-        if (CascadeMode == CascadeMode.Stop)
-          return failures;
-
-        continue;
-      }
-
-      if (ok) continue;
-
-      failures.Add(new ValidationFailure(PropertyName, validator.EffectiveMessage)
-      {
-        AttemptedValue = boxed,
-        ErrorCode = validator.ErrorCodeOverride,
-      });
-
-      if (CascadeMode == CascadeMode.Stop)
-        return failures;
     }
 
     return failures;
@@ -769,6 +917,32 @@ internal sealed class PropertyRule<T, TProperty>
     };
   }
 
+  private static ValidationFailure PrefixFailure(string parentPropertyName, ValidationFailure childFailure)
+  {
+    var propertyName = CombinePropertyName(parentPropertyName, childFailure.PropertyName);
+    return new ValidationFailure(propertyName, childFailure.ErrorMessage)
+    {
+      AttemptedValue = childFailure.AttemptedValue,
+      ErrorCode = childFailure.ErrorCode,
+      Severity = childFailure.Severity,
+      CustomState = childFailure.CustomState,
+    };
+  }
+
+  private static string CombinePropertyName(string parentPropertyName, string childPropertyName)
+  {
+    if (string.IsNullOrEmpty(parentPropertyName))
+      return childPropertyName;
+
+    if (string.IsNullOrEmpty(childPropertyName))
+      return parentPropertyName;
+
+    if (childPropertyName.StartsWith("[", StringComparison.Ordinal))
+      return parentPropertyName + childPropertyName;
+
+    return parentPropertyName + "." + childPropertyName;
+  }
+
   private readonly record struct PropertyValidator(
       Func<T, object?, bool> Predicate,
       string DefaultMessage)
@@ -787,10 +961,22 @@ internal sealed class PropertyRule<T, TProperty>
     public string EffectiveMessage => MessageOverride ?? DefaultMessage;
   }
 
-  private readonly record struct ValidatorSlot(bool IsAsync, int Index)
+  private enum ValidatorSlotKind
   {
-    public static ValidatorSlot ForSync(int index) => new(false, index);
-    public static ValidatorSlot ForAsync(int index) => new(true, index);
+    Sync = 0,
+    Async = 1,
+    Child = 2,
+  }
+
+  private readonly record struct ChildValidatorRunner(
+    Func<object, ValidationResult> Validate,
+    Func<object, CancellationToken, Task<ValidationResult>> ValidateAsync);
+
+  private readonly record struct ValidatorSlot(ValidatorSlotKind Kind, int Index)
+  {
+    public static ValidatorSlot ForSync(int index) => new(ValidatorSlotKind.Sync, index);
+    public static ValidatorSlot ForAsync(int index) => new(ValidatorSlotKind.Async, index);
+    public static ValidatorSlot ForChild(int index) => new(ValidatorSlotKind.Child, index);
   }
 }
 
