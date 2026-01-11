@@ -2,6 +2,7 @@
   <Folder Name="/src/">
     <Project Path="src/CCValidator.AspNetCore/CCValidator.AspNetCore.csproj" />
     <Project Path="src/CCValidator.DependencyInjection/CCValidator.DependencyInjection.csproj" />
+    <Project Path="src/CCValidator.Serilog/CCValidator.Serilog.csproj" />
     <Project Path="src/CCValidator/CCValidator.csproj" />
   </Folder>
   <Folder Name="/tests/">

@@ -717,6 +717,16 @@ internal sealed class PropertyRule<T, TProperty>
 
   private ValidationFailure CreateInternalFailure(Exception ex, object? attemptedValue)
   {
+    try
+    {
+      _options.Logger.InternalValidationError(
+        new InternalValidationErrorContext(PropertyName, attemptedValue, ex));
+    }
+    catch
+    {
+      // Best-effort logging must not affect validation.
+    }
+
     return new ValidationFailure(PropertyName, _options.InternalErrorMessage)
     {
       AttemptedValue = attemptedValue,

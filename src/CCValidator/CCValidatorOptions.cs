@@ -12,6 +12,8 @@ public sealed class CCValidatorOptions
 
   public IValidationMessageProvider MessageProvider { get; init; } = DefaultValidationMessageProvider.Instance;
 
+  public IValidationLogger Logger { get; init; } = NullValidationLogger.Instance;
+
   public ValidationExceptionBehavior ExceptionBehavior { get; init; } = ValidationExceptionBehavior.ConvertToFailure;
 
   public string InternalErrorMessage { get; init; } = "An internal validation error occurred";
