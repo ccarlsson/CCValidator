@@ -33,7 +33,9 @@ builder.Services.AddCCValidator(o =>
 });
 ```
 
-## Notes
+## Notes / limitations
 
-- This integration is synchronous (MVC calls `Validate`), so async rules are not executed during model binding.
+- MVC model validation is **synchronous** (model binding calls `Validate`).
+  - Async rules (`MustAsync`, `ValidateAsync`, etc.) are **not** executed during model binding.
+  - If you need async validation for requests, call `ValidateAsync` explicitly in your endpoint/controller logic.
 - For localization and logging, see `docs/Localization.md` and `docs/Logging.md`.

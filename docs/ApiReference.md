@@ -28,7 +28,6 @@ This page is a quick index of the main public surface.
   - Nested validation: `SetValidator(...)` and `ChildRules(...)`.
   - Dependent rules: `DependentRules(...)`.
   - Message metadata: `WithMessage(...)` / `WithErrorCode(...)`.
-  - Customization via `WithMessage(...)` / `WithErrorCode(...)`.
 
 ### Extensibility
 
@@ -54,6 +53,8 @@ This page is a quick index of the main public surface.
 
 - `ServiceCollectionExtensions`
   - `AddCCValidatorAutoValidation()` for MVC model validation integration.
+
+  Note: MVC model validation is synchronous and invokes `Validate` only. Async rules are not executed during model binding.
 
 ## Logging (`CCValidator` + optional `CCValidator.Serilog`)
 
