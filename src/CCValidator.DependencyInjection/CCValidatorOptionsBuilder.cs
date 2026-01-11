@@ -16,6 +16,11 @@ public sealed class CCValidatorOptionsBuilder
   public IValidationMessageProvider MessageProvider { get; set; } = DefaultValidationMessageProvider.Instance;
 
   /// <summary>
+  /// Time provider used by time-based rules.
+  /// </summary>
+  public TimeProvider TimeProvider { get; set; } = TimeProvider.System;
+
+  /// <summary>
   /// Logger used for internal validation errors.
   /// </summary>
   public IValidationLogger Logger { get; set; } = NullValidationLogger.Instance;
@@ -44,6 +49,7 @@ public sealed class CCValidatorOptionsBuilder
     {
       DefaultCascadeMode = DefaultCascadeMode,
       MessageProvider = MessageProvider,
+      TimeProvider = TimeProvider,
       Logger = Logger,
       ExceptionBehavior = ExceptionBehavior,
       InternalErrorMessage = InternalErrorMessage,

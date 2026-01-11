@@ -32,6 +32,14 @@ public sealed class CCValidatorOptions
   public IValidationMessageProvider MessageProvider { get; init; } = DefaultValidationMessageProvider.Instance;
 
   /// <summary>
+  /// Time provider used by time-based rules.
+  /// </summary>
+  /// <remarks>
+  /// Defaults to <see cref="TimeProvider.System"/>. Override this in tests to make time-based validation deterministic.
+  /// </remarks>
+  public TimeProvider TimeProvider { get; init; } = TimeProvider.System;
+
+  /// <summary>
   /// Logger used for internal validation errors.
   /// </summary>
   public IValidationLogger Logger { get; init; } = NullValidationLogger.Instance;
