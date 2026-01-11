@@ -27,6 +27,7 @@ var result = validator.Validate(new Person(""));
 ## Docs
 
 - `docs/GettingStarted.md`
+- `docs/ApiReference.md`
 - `docs/AspNetCore.md`
 - `docs/DependencyInjection.md`
 - `docs/Localization.md`
