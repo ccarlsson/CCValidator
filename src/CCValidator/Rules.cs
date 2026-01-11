@@ -1,3 +1,5 @@
+#if false // Split into src/CCValidator/Rules/*
+
 using System.Collections;
 using System.Linq.Expressions;
 using System.Text.RegularExpressions;
@@ -1773,3 +1775,5 @@ internal static class ExpressionHelpers
     return expression.ToString();
   }
 }
+
+#endif
