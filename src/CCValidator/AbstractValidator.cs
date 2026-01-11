@@ -7,6 +7,7 @@ public abstract class AbstractValidator<T> : IValidator<T>
   private readonly List<IRule<T>> _rules = [];
   private readonly Stack<Func<T, bool>> _conditionStack = new();
   private readonly Stack<string> _ruleSetStack = new();
+  private readonly CCValidatorOptions _options;
 
   protected AbstractValidator()
     : this(options: null)
@@ -15,10 +16,10 @@ public abstract class AbstractValidator<T> : IValidator<T>
 
   protected AbstractValidator(CCValidatorOptions? options)
   {
-    var effectiveOptions = options ?? new CCValidatorOptions();
+    _options = options ?? new CCValidatorOptions();
 
-    CascadeMode = effectiveOptions.DefaultCascadeMode;
-    MessageProvider = effectiveOptions.MessageProvider;
+    CascadeMode = _options.DefaultCascadeMode;
+    MessageProvider = _options.MessageProvider;
   }
 
   public CascadeMode CascadeMode { get; set; }
@@ -31,7 +32,7 @@ public abstract class AbstractValidator<T> : IValidator<T>
     var getter = expression.Compile();
 
     var ruleSet = _ruleSetStack.Count == 0 ? null : _ruleSetStack.Peek();
-    var rule = new PropertyRule<T, TProperty>(propertyName, getter, CascadeMode, ruleSet);
+    var rule = new PropertyRule<T, TProperty>(propertyName, getter, CascadeMode, ruleSet, _options);
 
     if (_conditionStack.Count != 0)
     {

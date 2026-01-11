@@ -426,17 +426,19 @@ internal sealed class PropertyRule<T, TProperty>
 {
   private readonly Func<T, TProperty> _getter;
   private Func<T, bool>? _condition;
+  private readonly CCValidatorOptions _options;
 
   private readonly List<PropertyValidator> _validators = [];
   private readonly List<AsyncPropertyValidator> _asyncValidators = [];
   private readonly List<ValidatorSlot> _slots = [];
 
-  public PropertyRule(string propertyName, Func<T, TProperty> getter, CascadeMode cascadeMode, string? ruleSet)
+  public PropertyRule(string propertyName, Func<T, TProperty> getter, CascadeMode cascadeMode, string? ruleSet, CCValidatorOptions options)
   {
     PropertyName = propertyName;
     _getter = getter;
     CascadeMode = cascadeMode;
     RuleSet = ruleSet;
+    _options = options;
   }
 
   public string PropertyName { get; }
@@ -513,15 +515,76 @@ internal sealed class PropertyRule<T, TProperty>
     if (HasAsyncValidators)
       throw new InvalidOperationException("This validator contains async rules and must be executed with ValidateAsync.");
 
-    if (_condition is not null && !_condition(instance))
-      yield break;
+    if (_condition is not null)
+    {
+      bool shouldRun;
+      ValidationFailure? conditionFailure = null;
+      try
+      {
+        shouldRun = _condition(instance);
+      }
+      catch (Exception ex)
+      {
+        if (ShouldThrow(ex)) throw;
+        shouldRun = false;
+        conditionFailure = CreateInternalFailure(ex, attemptedValue: null);
+      }
 
-    var value = _getter(instance);
+      if (conditionFailure is not null)
+      {
+        yield return conditionFailure;
+        yield break;
+      }
+
+      if (!shouldRun)
+        yield break;
+    }
+
+    TProperty value;
+    ValidationFailure? getterFailure = null;
+    try
+    {
+      value = _getter(instance);
+    }
+    catch (Exception ex)
+    {
+      if (ShouldThrow(ex)) throw;
+      value = default!;
+      getterFailure = CreateInternalFailure(ex, attemptedValue: null);
+    }
+
+    if (getterFailure is not null)
+    {
+      yield return getterFailure;
+      yield break;
+    }
+
     object? boxed = value;
 
     foreach (var validator in _validators)
     {
-      if (validator.Predicate(instance, boxed)) continue;
+      bool ok;
+      ValidationFailure? predicateFailure = null;
+      try
+      {
+        ok = validator.Predicate(instance, boxed);
+      }
+      catch (Exception ex)
+      {
+        if (ShouldThrow(ex)) throw;
+        ok = false;
+        predicateFailure = CreateInternalFailure(ex, boxed);
+      }
+
+      if (predicateFailure is not null)
+      {
+        yield return predicateFailure;
+        if (CascadeMode == CascadeMode.Stop)
+          yield break;
+        continue;
+      }
+
+      if (ok) continue;
 
       yield return new ValidationFailure(PropertyName, validator.EffectiveMessage)
       {
@@ -538,18 +601,57 @@ internal sealed class PropertyRule<T, TProperty>
   {
     token.ThrowIfCancellationRequested();
 
-    if (_condition is not null && !_condition(instance))
-      return Array.Empty<ValidationFailure>();
+    if (_condition is not null)
+    {
+      bool shouldRun;
+      try
+      {
+        shouldRun = _condition(instance);
+      }
+      catch (Exception ex)
+      {
+        if (ShouldThrow(ex, token)) throw;
+        return [CreateInternalFailure(ex, attemptedValue: null)];
+      }
+
+      if (!shouldRun)
+        return Array.Empty<ValidationFailure>();
+    }
 
     var failures = new List<ValidationFailure>();
 
-    var value = _getter(instance);
+    TProperty value;
+    try
+    {
+      value = _getter(instance);
+    }
+    catch (Exception ex)
+    {
+      if (ShouldThrow(ex, token)) throw;
+      return [CreateInternalFailure(ex, attemptedValue: null)];
+    }
+
     object? boxed = value;
 
     foreach (var validator in _validators)
     {
-      if (validator.Predicate(instance, boxed))
+      bool ok;
+      try
+      {
+        ok = validator.Predicate(instance, boxed);
+      }
+      catch (Exception ex)
+      {
+        if (ShouldThrow(ex, token)) throw;
+
+        failures.Add(CreateInternalFailure(ex, boxed));
+        if (CascadeMode == CascadeMode.Stop)
+          return failures;
+
         continue;
+      }
+
+      if (ok) continue;
 
       failures.Add(new ValidationFailure(PropertyName, validator.EffectiveMessage)
       {
@@ -565,8 +667,23 @@ internal sealed class PropertyRule<T, TProperty>
     {
       token.ThrowIfCancellationRequested();
 
-      if (await validator.Predicate(boxed, token).ConfigureAwait(false))
+      bool ok;
+      try
+      {
+        ok = await validator.Predicate(boxed, token).ConfigureAwait(false);
+      }
+      catch (Exception ex)
+      {
+        if (ShouldThrow(ex, token)) throw;
+
+        failures.Add(CreateInternalFailure(ex, boxed));
+        if (CascadeMode == CascadeMode.Stop)
+          return failures;
+
         continue;
+      }
+
+      if (ok) continue;
 
       failures.Add(new ValidationFailure(PropertyName, validator.EffectiveMessage)
       {
@@ -579,6 +696,33 @@ internal sealed class PropertyRule<T, TProperty>
     }
 
     return failures;
+  }
+
+  private bool ShouldThrow(Exception ex)
+  {
+    return _options.ExceptionBehavior == ValidationExceptionBehavior.Throw;
+  }
+
+  private bool ShouldThrow(Exception ex, CancellationToken token)
+  {
+    if (_options.ExceptionBehavior == ValidationExceptionBehavior.Throw)
+      return true;
+
+    // Never swallow cancellation when the provided token is cancelled.
+    if (ex is OperationCanceledException && token.IsCancellationRequested)
+      return true;
+
+    return false;
+  }
+
+  private ValidationFailure CreateInternalFailure(Exception ex, object? attemptedValue)
+  {
+    return new ValidationFailure(PropertyName, _options.InternalErrorMessage)
+    {
+      AttemptedValue = attemptedValue,
+      ErrorCode = _options.InternalErrorCode,
+      CustomState = ex,
+    };
   }
 
   private readonly record struct PropertyValidator(
