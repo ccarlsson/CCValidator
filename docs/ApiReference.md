@@ -6,6 +6,8 @@ This page is a quick index of the main public surface.
 
 - `AbstractValidator<T>`
   - Define rules via `RuleFor(...)`.
+  - Collection rules via `RuleForEach(...)`.
+  - Composition via `Include(...)`.
   - Execute rules via `Validate(...)` / `ValidateAsync(...)`.
   - Control defaults via `CascadeMode` and `MessageProvider`.
 - `IValidator<T>`
@@ -17,13 +19,28 @@ This page is a quick index of the main public surface.
 - `ValidationContext<T>`
   - Controls ruleset selection for validation.
 - `CCValidatorOptions`
-  - Default cascade mode, message provider, exception behavior, internal error code/message, and logging.
+  - Default cascade mode, message provider, exception behavior, internal error code/message, logging, and `TimeProvider`.
 
 ### Rule building
 
 - `IRuleBuilderInitial<T, TProperty>` / `IRuleBuilderOptions<T, TProperty>`
   - Core fluent methods like `NotEmpty`, `NotNull`, `Length`, `Matches`, `EmailAddress`, comparisons, `Must`/`MustAsync`.
+  - Nested validation: `SetValidator(...)` and `ChildRules(...)`.
+  - Dependent rules: `DependentRules(...)`.
+  - Message metadata: `WithMessage(...)` / `WithErrorCode(...)`.
   - Customization via `WithMessage(...)` / `WithErrorCode(...)`.
+
+### Extensibility
+
+- Custom validator classes
+  - `IPropertyValidator<T, TProperty>`
+  - `IAsyncPropertyValidator<T, TProperty>`
+  - Register via `SetValidator(...)` / `SetAsyncValidator(...)`.
+
+### Scoping
+
+- `RuleSet("name", () => { ... })` to tag rules.
+- `When(...)` / `Unless(...)` to conditionally apply a scope of rules.
 
 ## Dependency injection (`CCValidator.DependencyInjection`)
 

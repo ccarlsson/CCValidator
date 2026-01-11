@@ -30,6 +30,9 @@ services.AddCCValidator(o =>
   o.DefaultCascadeMode = CascadeMode.Stop;
   o.ExceptionBehavior = ValidationExceptionBehavior.ConvertToFailure;
   o.InternalErrorCode = "CCV_INTERNAL";
+
+  // Optional: make time-based rules deterministic/testable
+  o.TimeProvider = TimeProvider.System;
 });
 ```
 

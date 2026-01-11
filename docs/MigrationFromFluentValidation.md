@@ -5,9 +5,13 @@ This library is intentionally similar to FluentValidation, but it is not a compl
 ## What maps directly
 
 - `AbstractValidator<T>` and `RuleFor(...)`
+- `RuleForEach(...)` for collection validation
 - Chaining validators: `.NotEmpty().MaximumLength(50)`
 - `.WithMessage(...)` and `.WithErrorCode(...)`
 - `When`/`Unless` and rule sets
+- Validator composition: `Include(...)`
+- Nested validators: `SetValidator(...)` / `ChildRules(...)`
+- Dependent rules: `DependentRules(...)`
 - Sync and async validation (`Validate` / `ValidateAsync`)
 
 ## Key differences

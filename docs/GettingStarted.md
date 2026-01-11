@@ -48,6 +48,38 @@ RuleFor(x => x.Name)
     await Task.Delay(10, ct);
     return name is not null;
   });
+
+## Collections (`RuleForEach`)
+
+```csharp
+RuleForEach(x => x.Tags)
+  .NotEmpty()
+  .MaximumLength(20);
+```
+
+## Nested validation (`SetValidator` / `ChildRules`)
+
+```csharp
+RuleFor(x => x.Address)
+  .NotNull()
+  .ChildRules(v =>
+  {
+    v.RuleFor(a => a.Street).NotEmpty();
+    v.RuleFor(a => a.Zip).NotEmpty();
+  });
+```
+
+## Dependent rules
+
+```csharp
+RuleFor(x => x.Password)
+  .NotEmpty()
+  .DependentRules(() =>
+  {
+    RuleFor(x => x.Password)
+      .MinimumLength(12);
+  });
+```
 ```
 
 For DI and ASP.NET Core usage, see `docs/DependencyInjection.md` and `docs/AspNetCore.md`.

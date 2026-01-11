@@ -2,6 +2,8 @@
 
 CCValidator is a FluentValidation-inspired validation library targeting .NET 10 / C# 14.
 
+It supports sync/async validation, rule sets, conditions, validator composition, nested validation, and collection validation.
+
 ## Packages
 
 - `CCValidator` – core engine (`AbstractValidator<T>`, rules, execution)
@@ -27,8 +29,8 @@ var result = validator.Validate(new Person(""));
 ## Docs
 
 - [Getting Started](docs/GettingStarted.md)
-- [Api Reference](docs/ApiReference.md)
-- [ASP NETCORe](docs/AspNetCore.md)
+- [API Reference](docs/ApiReference.md)
+- [ASP.NET Core](docs/AspNetCore.md)
 - [DI](docs/DependencyInjection.md)
 - [Localization](docs/Localization.md)
 - [Logging](docs/Logging.md)
