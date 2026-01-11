@@ -59,6 +59,52 @@ public abstract class AbstractValidator<T> : IValidator<T>
   }
 
   /// <summary>
+  /// Define rules for each element in a collection property.
+  /// </summary>
+  /// <typeparam name="TElement">Element type.</typeparam>
+  /// <param name="expression">Expression selecting a collection property.</param>
+  /// <returns>A rule builder for chaining validators that apply to each element.</returns>
+  protected IRuleBuilderInitial<T, TElement> RuleForEach<TElement>(Expression<Func<T, IEnumerable<TElement>>> expression)
+  {
+    ArgumentNullException.ThrowIfNull(expression);
+
+    var propertyName = ExpressionHelpers.GetPropertyName(expression);
+    var getter = expression.Compile();
+
+    var ruleSet = _ruleSetStack.Count == 0 ? null : _ruleSetStack.Peek();
+    var rule = new ForEachRule<T, TElement>(propertyName, getter, CascadeMode, ruleSet, _options);
+
+    if (_conditionStack.Count != 0)
+    {
+      foreach (var condition in _conditionStack)
+        rule.ApplyCondition(condition);
+    }
+
+    _rules.Add(rule);
+
+    return new RuleBuilder<T, TElement>(rule, MessageProvider);
+  }
+
+  /// <summary>
+  /// Includes rules from another validator.
+  /// </summary>
+  protected void Include(IValidator<T> validator)
+  {
+    ArgumentNullException.ThrowIfNull(validator);
+
+    var ruleSet = _ruleSetStack.Count == 0 ? null : _ruleSetStack.Peek();
+    var rule = new IncludedValidatorRule<T>(validator, ruleSet, _options);
+
+    if (_conditionStack.Count != 0)
+    {
+      foreach (var condition in _conditionStack)
+        rule.ApplyCondition(condition);
+    }
+
+    _rules.Add(rule);
+  }
+
+  /// <summary>
   /// Execute rules inside a named ruleset.
   /// </summary>
   protected void RuleSet(string ruleSetName, Action action)
