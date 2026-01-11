@@ -8,6 +8,16 @@
     <Deterministic>true</Deterministic>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
     <NoWarn>$(NoWarn);1591</NoWarn>
+
+    <!-- Centralized package/app versioning (bump here for all projects) -->
+    <VersionPrefix>0.1.0</VersionPrefix>
+    <!-- Set /p:VersionSuffix=alpha.1 (or similar) for pre-release builds -->
+    <VersionSuffix Condition="'$(VersionSuffix)'==''"></VersionSuffix>
+
+    <!-- Keep assembly versions stable and derived from VersionPrefix -->
+    <AssemblyVersion>$(VersionPrefix).0</AssemblyVersion>
+    <FileVersion>$(VersionPrefix).0</FileVersion>
+    <InformationalVersion>$(Version)</InformationalVersion>
   </PropertyGroup>
 
   <PropertyGroup Condition="'$(Configuration)' == 'Release'">
