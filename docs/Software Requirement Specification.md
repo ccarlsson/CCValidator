@@ -165,6 +165,51 @@ Provide ```ValidationResult``` with:
 
 ---
 
+## 4.6 Implementation Status (as of 2026-01-11)
+
+This section is informational and describes the current state of the implementation relative to the requirements above.
+
+### Implemented
+
+- Fluent rule definitions
+  - `RuleFor(...)`, `RuleForEach(...)`
+  - Built-in validators: `NotNull`, `NotEmpty`, `Length`/`MinimumLength`/`MaximumLength`, `InclusiveBetween`/`ExclusiveBetween`, `Matches`, `EmailAddress`, `Equal`/`NotEqual`, comparison validators (`GreaterThan`, etc.)
+  - Cascade modes (continue/stop)
+  - Conditional scoping: `When(...)` / `Unless(...)`
+  - Rule sets: `RuleSet("name", ...)` + selection via `ValidationContext<T>`
+- Composition and nesting
+  - Include validator rules: `Include(...)`
+  - Nested validators: `SetValidator(...)`
+  - Inline nested validation: `ChildRules(...)` (via `InlineValidator<T>`)
+  - Dependent rule chaining: `DependentRules(...)`
+- Custom validators / extensibility
+  - Predicate-based: `Must(...)` / `MustAsync(...)`
+  - Validator classes: `IPropertyValidator<T, TProperty>` / `IAsyncPropertyValidator<T, TProperty>` with `SetValidator(...)` / `SetAsyncValidator(...)`
+- Execution
+  - Sync: `Validate(...)`
+  - Async: `ValidateAsync(...)` with cancellation support
+- Error reporting
+  - `ValidationResult` + `ValidationFailure` including optional metadata (`AttemptedValue`, `ErrorCode`, `Severity`, `CustomState`)
+- Configuration and testability
+  - Per-validator options via `CCValidatorOptions` (no hidden global state)
+  - Time abstraction available via `CCValidatorOptions.TimeProvider`
+- Integration
+  - DI registration helpers (`CCValidator.DependencyInjection`)
+  - ASP.NET Core MVC model validation integration (`CCValidator.AspNetCore`)
+  - Localization via `IValidationMessageProvider` + `ResourceManagerValidationMessageProvider`
+  - Logging hook via `IValidationLogger` (and optional Serilog adapter)
+
+### Documented deviations / constraints
+
+- ASP.NET Core MVC integration is synchronous; async rules are not executed during model binding.
+
+### Not in scope / pending (v1.0+ candidates)
+
+- Full FluentValidation surface-area parity (many specialized validators, advanced metadata APIs, etc.)
+- Source-generator friendliness (explicitly marked as future / optional in this SRS)
+
+---
+
 ## 5. Non‑Functional Requirements
 
 ### 5.1 Performance and Reflection
