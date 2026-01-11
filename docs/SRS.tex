@@ -111,6 +111,12 @@ Users are .NET developers familiar with FluentValidation, DI, and ASP.NET.
     \item \textbf{FR-11} The system shall support cascade modes.
 \end{itemize}
 
+\subsection{Validation Result API}
+\begin{itemize}[noitemsep]
+    \item The system shall provide \texttt{ValidationResult} with \texttt{IsValid} and a list of failures.
+    \item The system shall provide \texttt{ValidationFailure} with \texttt{PropertyName}, \texttt{ErrorMessage}, and optional metadata (error code, severity, custom state).
+\end{itemize}
+
 \subsection{Error Messages and Localization}
 \begin{itemize}[noitemsep]
     \item \textbf{FR-12} The system shall provide default error messages.

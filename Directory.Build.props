@@ -18,9 +18,31 @@
     <AssemblyVersion>$(VersionPrefix).0</AssemblyVersion>
     <FileVersion>$(VersionPrefix).0</FileVersion>
     <InformationalVersion>$(Version)</InformationalVersion>
+
+    <!-- NuGet packaging defaults (projects can override as needed) -->
+    <IncludeSymbols>true</IncludeSymbols>
+    <SymbolPackageFormat>snupkg</SymbolPackageFormat>
+    <EmbedUntrackedSources>true</EmbedUntrackedSources>
+
+    <Authors>ccarlsson</Authors>
+    <PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
+    <RepositoryType>git</RepositoryType>
+    <!-- No git remote configured in this workspace; set these when publishing -->
+    <RepositoryUrl Condition="'$(RepositoryUrl)'==''"></RepositoryUrl>
+    <PackageProjectUrl Condition="'$(PackageProjectUrl)'==''"></PackageProjectUrl>
+
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <PackageReleaseNotes>See COMPATIBILITY.md for compatibility notes and deviations.</PackageReleaseNotes>
+    <PackageTags>validation;fluentvalidation;aspnetcore;dotnet</PackageTags>
   </PropertyGroup>
 
   <PropertyGroup Condition="'$(Configuration)' == 'Release'">
     <ContinuousIntegrationBuild>true</ContinuousIntegrationBuild>
   </PropertyGroup>
+
+  <!-- Include top-level docs in all shipped packages -->
+  <ItemGroup Condition="'$(IsPackable)' == 'true'">
+    <None Include="$(MSBuildThisFileDirectory)README.md" Pack="true" PackagePath="\" Visible="false" />
+    <None Include="$(MSBuildThisFileDirectory)COMPATIBILITY.md" Pack="true" PackagePath="\" Visible="false" />
+  </ItemGroup>
 </Project>

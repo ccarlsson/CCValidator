@@ -13,6 +13,9 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <AllowMissingPrunePackageData>true</AllowMissingPrunePackageData>
+
+    <PackageId>CCValidator.AspNetCore</PackageId>
+    <Description>ASP.NET Core MVC model validation integration for CCValidator.</Description>
   </PropertyGroup>
 
   <ItemGroup>

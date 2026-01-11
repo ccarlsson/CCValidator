@@ -4,6 +4,9 @@
     <TargetFramework>net10.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
+
+    <PackageId>CCValidator</PackageId>
+    <Description>FluentValidation-inspired validation library for .NET 10 (core engine).</Description>
   </PropertyGroup>
 
 </Project>

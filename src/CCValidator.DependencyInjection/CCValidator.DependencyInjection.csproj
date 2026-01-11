@@ -12,6 +12,9 @@
     <TargetFramework>net10.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
+
+    <PackageId>CCValidator.DependencyInjection</PackageId>
+    <Description>DI registration helpers for CCValidator (assembly scanning, options registration).</Description>
   </PropertyGroup>
 
 </Project>

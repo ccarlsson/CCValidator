@@ -84,7 +84,7 @@ Users are .NET developers familiar with FluentValidation, DI, and ASP.NET.
 
 Provide ```ValidationResult``` with:
 
-- ```IValid```
+- ```IsValid```
 - ```Errors : List<ValidationFailure>```
 - Provide ```ValidationFailure``` with:
   - ```PropertyName```
