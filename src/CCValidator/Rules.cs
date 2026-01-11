@@ -46,6 +46,16 @@ public interface IRuleBuilderInitial<T, TProperty>
   IRuleBuilderOptions<T, TProperty> MustAsync(Func<TProperty, CancellationToken, Task<bool>> predicate);
 
   /// <summary>
+  /// Adds a custom validator class.
+  /// </summary>
+  IRuleBuilderOptions<T, TProperty> SetValidator(IPropertyValidator<T, TProperty> validator);
+
+  /// <summary>
+  /// Adds a custom async validator class.
+  /// </summary>
+  IRuleBuilderOptions<T, TProperty> SetAsyncValidator(IAsyncPropertyValidator<T, TProperty> validator);
+
+  /// <summary>
   /// Adds a nested validator for complex object graphs.
   /// </summary>
   /// <remarks>
@@ -123,6 +133,8 @@ internal interface IRuleInternal<T, TProperty>
   void AddValidator(Func<T, object?, bool> predicate, string defaultMessage);
 
   void AddAsyncValidator(Func<object?, CancellationToken, Task<bool>> predicate, string defaultMessage);
+
+  void AddAsyncValidator(Func<T, object?, CancellationToken, Task<bool>> predicate, string defaultMessage);
 
   void AddChildValidator<TChild>(IValidator<TChild> validator);
 
@@ -350,6 +362,28 @@ internal sealed class RuleBuilder<T, TProperty> : IRuleBuilderOptions<T, TProper
         return await predicate((TProperty)v, ct).ConfigureAwait(false);
       },
       _messages.Must());
+
+    return this;
+  }
+
+  public IRuleBuilderOptions<T, TProperty> SetValidator(IPropertyValidator<T, TProperty> validator)
+  {
+    ArgumentNullException.ThrowIfNull(validator);
+
+    _rule.AddValidator(
+      (instance, v) => validator.IsValid(instance, v is null ? default : (TProperty)v),
+      validator.DefaultMessage);
+
+    return this;
+  }
+
+  public IRuleBuilderOptions<T, TProperty> SetAsyncValidator(IAsyncPropertyValidator<T, TProperty> validator)
+  {
+    ArgumentNullException.ThrowIfNull(validator);
+
+    _rule.AddAsyncValidator(
+      (instance, v, ct) => validator.IsValidAsync(instance, v is null ? default : (TProperty)v, ct),
+      validator.DefaultMessage);
 
     return this;
   }
@@ -604,6 +638,13 @@ internal sealed class PropertyRule<T, TProperty>
 
   public void AddAsyncValidator(Func<object?, CancellationToken, Task<bool>> predicate, string defaultMessage)
   {
+    ArgumentNullException.ThrowIfNull(predicate);
+    AddAsyncValidator((_, value, token) => predicate(value, token), defaultMessage);
+  }
+
+  public void AddAsyncValidator(Func<T, object?, CancellationToken, Task<bool>> predicate, string defaultMessage)
+  {
+    ArgumentNullException.ThrowIfNull(predicate);
     _asyncValidators.Add(new AsyncPropertyValidator(predicate, defaultMessage));
     _slots.Add(ValidatorSlot.ForAsync(_asyncValidators.Count - 1));
   }
@@ -904,7 +945,7 @@ internal sealed class PropertyRule<T, TProperty>
             bool ok;
             try
             {
-              ok = await validator.Predicate(boxed, token).ConfigureAwait(false);
+              ok = await validator.Predicate(instance, boxed, token).ConfigureAwait(false);
             }
             catch (Exception ex)
             {
@@ -1053,7 +1094,7 @@ internal sealed class PropertyRule<T, TProperty>
   }
 
   private readonly record struct AsyncPropertyValidator(
-      Func<object?, CancellationToken, Task<bool>> Predicate,
+      Func<T, object?, CancellationToken, Task<bool>> Predicate,
       string DefaultMessage)
   {
     public string? MessageOverride { get; init; }
@@ -1136,6 +1177,12 @@ internal sealed class ForEachRule<T, TElement>
   }
 
   public void AddAsyncValidator(Func<object?, CancellationToken, Task<bool>> predicate, string defaultMessage)
+  {
+    ArgumentNullException.ThrowIfNull(predicate);
+    AddAsyncValidator((_, value, token) => predicate(value, token), defaultMessage);
+  }
+
+  public void AddAsyncValidator(Func<T, object?, CancellationToken, Task<bool>> predicate, string defaultMessage)
   {
     ArgumentNullException.ThrowIfNull(predicate);
     _asyncValidators.Add(new AsyncElementValidator(predicate, defaultMessage));
@@ -1532,7 +1579,7 @@ internal sealed class ForEachRule<T, TElement>
                 bool ok;
                 try
                 {
-                  ok = await validator.Predicate(boxed, token).ConfigureAwait(false);
+                  ok = await validator.Predicate(instance, boxed, token).ConfigureAwait(false);
                 }
                 catch (Exception ex)
                 {
@@ -1684,7 +1731,7 @@ internal sealed class ForEachRule<T, TElement>
   }
 
   private readonly record struct AsyncElementValidator(
-    Func<object?, CancellationToken, Task<bool>> Predicate,
+    Func<T, object?, CancellationToken, Task<bool>> Predicate,
     string DefaultMessage)
   {
     public string? MessageOverride { get; init; }
