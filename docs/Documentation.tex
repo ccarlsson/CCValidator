@@ -1,0 +1,235 @@
+\documentclass[12pt]{article}
+
+\usepackage[a4paper,margin=1in]{geometry}
+\usepackage[hidelinks]{hyperref}
+\usepackage{enumitem}
+\usepackage{longtable}
+\usepackage{titlesec}
+\usepackage{listings}
+\usepackage{xcolor}
+
+\title{CCValidator Documentation}
+\author{CCValidator}
+\date{\today}
+
+\definecolor{codebg}{RGB}{248,248,248}
+\definecolor{codestring}{RGB}{163,21,21}
+\definecolor{codecomment}{RGB}{0,128,0}
+\definecolor{codekeyword}{RGB}{0,0,180}
+
+\lstdefinelanguage{CSharp}{
+  morekeywords={abstract,as,base,bool,break,byte,case,catch,char,checked,class,const,continue,decimal,default,delegate,do,double,else,enum,event,explicit,extern,false,finally,fixed,float,for,foreach,goto,if,implicit,in,int,interface,internal,is,lock,long,namespace,new,null,object,operator,out,override,params,private,protected,public,readonly,ref,return,sbyte,sealed,short,sizeof,stackalloc,static,string,struct,switch,this,throw,true,try,typeof,uint,ulong,unchecked,unsafe,ushort,using,virtual,void,volatile,while,record,var,Task},
+  sensitive=true,
+  morecomment=[l]{//},
+  morecomment=[s]{/*}{*/},
+  morestring=[b]",
+}
+
+\lstset{
+  language=CSharp,
+  basicstyle=\ttfamily\small,
+  keywordstyle=\color{codekeyword},
+  stringstyle=\color{codestring},
+  commentstyle=\color{codecomment},
+  backgroundcolor=\color{codebg},
+  frame=single,
+  breaklines=true,
+  tabsize=2,
+  showstringspaces=false
+}
+
+\begin{document}
+\maketitle
+\tableofcontents
+\newpage
+
+\section{Overview}
+
+CCValidator is a FluentValidation-inspired validation library targeting .NET 10 / C\# 14.
+
+\subsection{Packages}
+\begin{itemize}[noitemsep]
+  \item \texttt{CCValidator} --- core engine (\texttt{AbstractValidator<T>}, rule building, execution)
+  \item \texttt{CCValidator.DependencyInjection} --- DI registration helpers
+  \item \texttt{CCValidator.AspNetCore} --- ASP.NET Core MVC model validation integration
+  \item \texttt{CCValidator.Serilog} --- optional Serilog logger adapter
+\end{itemize}
+
+\section{Getting started}
+
+\subsection{Define a validator}
+\begin{lstlisting}
+public sealed record Person(string? Name, int Age);
+
+public sealed class PersonValidator : AbstractValidator<Person>
+{
+  public PersonValidator()
+  {
+    RuleFor(x => x.Name)
+      .NotEmpty()
+      .MaximumLength(50);
+
+    RuleFor(x => x.Age)
+      .InclusiveBetween(0, 150);
+  }
+}
+\end{lstlisting}
+
+\subsection{Validate}
+\begin{lstlisting}
+var validator = new PersonValidator();
+var result = validator.Validate(new Person(Name: "", Age: 200));
+
+if (!result.IsValid)
+{
+  foreach (var failure in result.Errors)
+    Console.WriteLine($"{failure.PropertyName}: {failure.ErrorMessage}");
+}
+\end{lstlisting}
+
+\subsection{Async validation}
+\begin{lstlisting}
+RuleFor(x => x.Name)
+  .MustAsync(async (name, ct) =>
+  {
+    await Task.Delay(10, ct);
+    return name is not null;
+  });
+\end{lstlisting}
+
+\section{API reference (short)}
+
+\subsection{Core (CCValidator)}
+\begin{itemize}[noitemsep]
+  \item \texttt{AbstractValidator<T>} --- define rules via \texttt{RuleFor(...)} and execute via \texttt{Validate}/\texttt{ValidateAsync}.
+  \item \texttt{IValidator<T>} --- validator interface (used by DI and ASP.NET integration).
+  \item \texttt{ValidationResult} --- contains \texttt{IsValid} and \texttt{Errors}.
+  \item \texttt{ValidationFailure} --- contains \texttt{PropertyName}, \texttt{ErrorMessage}, and optional metadata.
+  \item \texttt{ValidationContext<T>} --- selects rule sets.
+  \item \texttt{CCValidatorOptions} --- defaults and policies (messages, cascade, exception behavior, logging).
+\end{itemize}
+
+\subsection{Rule building}
+\begin{itemize}[noitemsep]
+  \item \texttt{IRuleBuilderInitial<T,TProperty>} / \texttt{IRuleBuilderOptions<T,TProperty>} --- fluent validator methods.
+  \item Customization: \texttt{WithMessage(...)} and \texttt{WithErrorCode(...)}.
+\end{itemize}
+
+\subsection{Dependency injection (CCValidator.DependencyInjection)}
+\begin{itemize}[noitemsep]
+  \item \texttt{AddValidatorsFromAssembly(...)} and \texttt{AddValidatorsFromAssemblyContaining<T>(...)}
+  \item \texttt{AddCCValidator(...)} overloads for registering/configuring \texttt{CCValidatorOptions}
+\end{itemize}
+
+\subsection{ASP.NET Core (CCValidator.AspNetCore)}
+\begin{itemize}[noitemsep]
+  \item \texttt{AddCCValidatorAutoValidation()} --- inserts a model validator provider.
+\end{itemize}
+
+\subsection{Logging (CCValidator + CCValidator.Serilog)}
+\begin{itemize}[noitemsep]
+  \item \texttt{IValidationLogger} --- receives internal validation errors.
+  \item \texttt{SerilogValidationLogger} --- optional adapter that logs to Serilog.
+\end{itemize}
+
+\section{Dependency injection}
+
+\subsection{Register validators}
+\begin{lstlisting}
+using CCValidator.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection;
+
+var services = new ServiceCollection();
+services.AddValidatorsFromAssemblyContaining<MyValidator>();
+\end{lstlisting}
+
+Validators are registered as \texttt{Scoped} by default. You can override the lifetime:
+
+\begin{lstlisting}
+services.AddValidatorsFromAssemblyContaining<MyValidator>(ServiceLifetime.Singleton);
+\end{lstlisting}
+
+\subsection{Configure defaults via CCValidatorOptions}
+\begin{lstlisting}
+services.AddCCValidator(o =>
+{
+  o.DefaultCascadeMode = CascadeMode.Stop;
+  o.ExceptionBehavior = ValidationExceptionBehavior.ConvertToFailure;
+  o.InternalErrorCode = "CCV_INTERNAL";
+});
+\end{lstlisting}
+
+\section{ASP.NET Core MVC integration}
+
+\subsection{Register auto-validation}
+\begin{lstlisting}
+using CCValidator.AspNetCore;
+using CCValidator.DependencyInjection;
+
+var builder = WebApplication.CreateBuilder(args);
+
+builder.Services
+  .AddControllers()
+  .AddCCValidatorAutoValidation();
+
+builder.Services.AddValidatorsFromAssemblyContaining<MyValidator>();
+\end{lstlisting}
+
+\subsection{Notes}
+\begin{itemize}[noitemsep]
+  \item MVC model validation is synchronous; async rules are not executed during model binding.
+  \item If no \texttt{IValidator<TModel>} is registered for a model type, no errors are produced.
+\end{itemize}
+
+\section{Localization}
+
+Default messages come from \texttt{IValidationMessageProvider}. You can supply a custom provider, including a ResourceManager-backed provider.
+
+\subsection{ResourceManager provider}
+\begin{lstlisting}
+using System.Resources;
+
+var rm = new ResourceManager("My.Messages", typeof(MyValidator).Assembly);
+var provider = new ResourceManagerValidationMessageProvider(rm);
+
+var options = new CCValidatorOptions { MessageProvider = provider };
+\end{lstlisting}
+
+\section{Logging}
+
+Internal exceptions during validation can be logged via \texttt{IValidationLogger}.
+
+\subsection{Serilog adapter}
+\begin{lstlisting}
+using CCValidator.Serilog;
+using Serilog;
+
+var log = new LoggerConfiguration()
+  .WriteTo.Console()
+  .CreateLogger();
+
+var options = new CCValidatorOptions
+{
+  Logger = new SerilogValidationLogger(log),
+};
+\end{lstlisting}
+
+\section{Migration from FluentValidation}
+
+\subsection{What maps directly}
+\begin{itemize}[noitemsep]
+  \item \texttt{AbstractValidator<T>} and \texttt{RuleFor(...)}
+  \item Chaining validators (e.g. \texttt{NotEmpty().MaximumLength(50)})
+  \item \texttt{WithMessage(...)} and \texttt{WithErrorCode(...)}
+  \item \texttt{When}/\texttt{Unless}, rule sets
+  \item \texttt{Validate}/\texttt{ValidateAsync}
+\end{itemize}
+
+\subsection{Key differences}
+\begin{itemize}[noitemsep]
+  \item Configuration is explicit via \texttt{CCValidatorOptions} (and DI registration), not global static state.
+  \item The API surface is intentionally smaller than FluentValidation (see \texttt{COMPATIBILITY.md}).
+  \item MVC integration runs synchronously (async rules do not run during model binding).
+\end{itemize}
+
+\end{document}
