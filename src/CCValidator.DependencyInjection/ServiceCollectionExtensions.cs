@@ -1,10 +1,41 @@
 using System.Reflection;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 
 namespace CCValidator.DependencyInjection;
 
 public static class ServiceCollectionExtensions
 {
+  public static IServiceCollection AddCCValidator(this IServiceCollection services)
+  {
+    ArgumentNullException.ThrowIfNull(services);
+
+    services.TryAddSingleton(static _ => new CCValidatorOptions());
+    return services;
+  }
+
+  public static IServiceCollection AddCCValidator(this IServiceCollection services, CCValidatorOptions options)
+  {
+    ArgumentNullException.ThrowIfNull(services);
+    ArgumentNullException.ThrowIfNull(options);
+
+    services.Replace(ServiceDescriptor.Singleton(options));
+    return services;
+  }
+
+  public static IServiceCollection AddCCValidator(
+    this IServiceCollection services,
+    Action<CCValidatorOptionsBuilder> configure)
+  {
+    ArgumentNullException.ThrowIfNull(services);
+    ArgumentNullException.ThrowIfNull(configure);
+
+    var builder = new CCValidatorOptionsBuilder();
+    configure(builder);
+
+    return services.AddCCValidator(builder.Build());
+  }
+
   public static IServiceCollection AddValidatorsFromAssembly(
     this IServiceCollection services,
     Assembly assembly,
@@ -12,6 +43,9 @@ public static class ServiceCollectionExtensions
   {
     ArgumentNullException.ThrowIfNull(services);
     ArgumentNullException.ThrowIfNull(assembly);
+
+    // Ensure validators can take CCValidatorOptions via constructor injection.
+    services.AddCCValidator();
 
     foreach (var type in assembly.DefinedTypes)
     {
