@@ -1,5 +1,7 @@
 namespace CCValidator.Tests;
 
+using System.Resources;
+
 public sealed class MessageProviderTests
 {
   private sealed record Person(string? Name);
@@ -64,5 +66,55 @@ public sealed class MessageProviderTests
     Assert.False(result.IsValid);
     Assert.Single(result.Errors);
     Assert.Equal("OVERRIDE", result.Errors[0].ErrorMessage);
+  }
+
+  [Fact]
+  public void ResourceManager_provider_reads_messages_and_formats_templates()
+  {
+    var resourceManager = new ResourceManager("CCValidator.Tests.TestMessages", typeof(MessageProviderTests).Assembly);
+
+    var notNullValidator = new InlineValidator<Person>(v =>
+    {
+      v.MessageProvider = new ResourceManagerValidationMessageProvider(resourceManager);
+      v.RuleFor(x => x.Name).NotNull();
+    });
+
+    var maxValidator = new InlineValidator<Person>(v =>
+    {
+      v.MessageProvider = new ResourceManagerValidationMessageProvider(resourceManager);
+      v.RuleFor(x => x.Name).MaximumLength(3);
+    });
+
+    var lengthValidator = new InlineValidator<Person>(v =>
+    {
+      v.MessageProvider = new ResourceManagerValidationMessageProvider(resourceManager);
+      v.RuleFor(x => x.Name).Length(1, 2);
+    });
+
+    var nullResult = notNullValidator.Validate(new Person(null));
+    Assert.False(nullResult.IsValid);
+    Assert.Single(nullResult.Errors);
+    Assert.Equal("RES_NOT_NULL", nullResult.Errors[0].ErrorMessage);
+
+    var maxResult = maxValidator.Validate(new Person("abcd"));
+    Assert.False(maxResult.IsValid);
+    Assert.Single(maxResult.Errors);
+    Assert.Equal("RES_MAX_3", maxResult.Errors[0].ErrorMessage);
+
+    var lenResult = lengthValidator.Validate(new Person(""));
+    Assert.False(lenResult.IsValid);
+    Assert.Single(lenResult.Errors);
+    Assert.Equal("RES_LEN_1_2", lenResult.Errors[0].ErrorMessage);
+  }
+
+  private sealed class InlineValidator<T> : AbstractValidator<T>
+  {
+    public InlineValidator(Action<InlineValidator<T>> build)
+    {
+      build(this);
+    }
+
+    public new IRuleBuilderInitial<T, TProperty> RuleFor<TProperty>(System.Linq.Expressions.Expression<Func<T, TProperty>> expression)
+      => base.RuleFor(expression);
   }
 }
