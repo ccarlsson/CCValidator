@@ -56,7 +56,7 @@ public abstract class AbstractValidator<T> : IValidator<T>
 
     AddRule(rule);
 
-    return new RuleBuilder<T, TProperty>(rule, MessageProvider, RunDependentRulesScope);
+    return new RuleBuilder<T, TProperty>(rule, MessageProvider, RunDependentRulesScope, _options);
   }
 
   /// <summary>
@@ -83,7 +83,7 @@ public abstract class AbstractValidator<T> : IValidator<T>
 
     AddRule(rule);
 
-    return new RuleBuilder<T, TElement>(rule, MessageProvider, RunDependentRulesScope);
+    return new RuleBuilder<T, TElement>(rule, MessageProvider, RunDependentRulesScope, _options);
   }
 
   /// <summary>

@@ -52,6 +52,14 @@ public interface IRuleBuilderInitial<T, TProperty>
   /// If the property value is <see langword="null"/>, the nested validator is not executed.
   /// </remarks>
   IRuleBuilderOptions<T, TProperty> SetValidator<TChild>(IValidator<TChild> validator);
+
+  /// <summary>
+  /// Defines child rules for the current property.
+  /// </summary>
+  /// <remarks>
+  /// This is a convenience for creating an inline validator and attaching it via <c>SetValidator</c>.
+  /// </remarks>
+  IRuleBuilderOptions<T, TProperty> ChildRules(Action<InlineValidator<TProperty>> action);
   IRuleBuilderOptions<T, TProperty> Equal(TProperty comparisonValue);
   IRuleBuilderOptions<T, TProperty> Equal(Expression<Func<T, TProperty>> comparisonExpression);
   IRuleBuilderOptions<T, TProperty> NotEqual(TProperty comparisonValue);
@@ -128,6 +136,7 @@ internal sealed class RuleBuilder<T, TProperty> : IRuleBuilderOptions<T, TProper
   private readonly IRuleInternal<T, TProperty> _rule;
   private readonly IValidationMessageProvider _messages;
   private readonly Action<IDependentRuleHost<T>, Action>? _dependentRulesRunner;
+  private readonly CCValidatorOptions? _options;
 
   private static readonly Regex EmailRegex = new(
     @"^[^@\s]+@[^@\s]+\.[^@\s]+$",
@@ -136,11 +145,13 @@ internal sealed class RuleBuilder<T, TProperty> : IRuleBuilderOptions<T, TProper
   public RuleBuilder(
     IRuleInternal<T, TProperty> rule,
     IValidationMessageProvider messages,
-    Action<IDependentRuleHost<T>, Action>? dependentRulesRunner = null)
+    Action<IDependentRuleHost<T>, Action>? dependentRulesRunner = null,
+    CCValidatorOptions? options = null)
   {
     _rule = rule;
     _messages = messages;
     _dependentRulesRunner = dependentRulesRunner;
+    _options = options;
   }
 
   public IRuleBuilderInitial<T, TProperty> Cascade(CascadeMode cascadeMode)
@@ -453,6 +464,16 @@ internal sealed class RuleBuilder<T, TProperty> : IRuleBuilderOptions<T, TProper
       throw new InvalidOperationException("DependentRules is only supported for rules that can host dependent rules.");
 
     _dependentRulesRunner(host, action);
+    return this;
+  }
+
+  public IRuleBuilderOptions<T, TProperty> ChildRules(Action<InlineValidator<TProperty>> action)
+  {
+    ArgumentNullException.ThrowIfNull(action);
+
+    var inline = new InlineValidator<TProperty>(_options);
+    action(inline);
+    _rule.AddChildValidator(inline);
     return this;
   }
 
