@@ -8,9 +8,22 @@ public abstract class AbstractValidator<T> : IValidator<T>
   private readonly Stack<Func<T, bool>> _conditionStack = new();
   private readonly Stack<string> _ruleSetStack = new();
 
-  public CascadeMode CascadeMode { get; set; } = CascadeMode.Continue;
+  protected AbstractValidator()
+    : this(options: null)
+  {
+  }
 
-  public IValidationMessageProvider MessageProvider { get; set; } = DefaultValidationMessageProvider.Instance;
+  protected AbstractValidator(CCValidatorOptions? options)
+  {
+    var effectiveOptions = options ?? new CCValidatorOptions();
+
+    CascadeMode = effectiveOptions.DefaultCascadeMode;
+    MessageProvider = effectiveOptions.MessageProvider;
+  }
+
+  public CascadeMode CascadeMode { get; set; }
+
+  public IValidationMessageProvider MessageProvider { get; set; }
 
   protected IRuleBuilderInitial<T, TProperty> RuleFor<TProperty>(Expression<Func<T, TProperty>> expression)
   {
