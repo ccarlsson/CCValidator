@@ -86,4 +86,53 @@ public sealed class AspNetCoreIntegrationTests
 
     Assert.Empty(results);
   }
+
+  [Fact]
+  public void ModelValidator_returns_empty_when_model_is_null()
+  {
+    IServiceCollection services = new ServiceCollection();
+    services.AddSingleton<IValidator<Person>, PersonValidator>();
+
+    using var provider = services.BuildServiceProvider();
+
+    var httpContext = new DefaultHttpContext { RequestServices = provider };
+    var actionContext = new ActionContext(httpContext, new RouteData(), new ActionDescriptor(), new ModelStateDictionary());
+
+    var metadataProvider = new EmptyModelMetadataProvider();
+    var metadata = metadataProvider.GetMetadataForType(typeof(Person));
+
+    var validationContext = new ModelValidationContext(actionContext, metadata, metadataProvider, container: null, model: null);
+
+    var validator = new CCValidatorModelValidator();
+    var results = validator.Validate(validationContext).ToList();
+
+    Assert.Empty(results);
+  }
+
+  [Fact]
+  public void ModelValidator_can_be_invoked_multiple_times_for_same_model_type()
+  {
+    IServiceCollection services = new ServiceCollection();
+    services.AddSingleton<IValidator<Person>, PersonValidator>();
+
+    using var provider = services.BuildServiceProvider();
+
+    var httpContext = new DefaultHttpContext { RequestServices = provider };
+    var actionContext = new ActionContext(httpContext, new RouteData(), new ActionDescriptor(), new ModelStateDictionary());
+
+    var metadataProvider = new EmptyModelMetadataProvider();
+    var metadata = metadataProvider.GetMetadataForType(typeof(Person));
+
+    var validator = new CCValidatorModelValidator();
+
+    var results1 = validator.Validate(new ModelValidationContext(actionContext, metadata, metadataProvider, container: null, model: new Person(""))).ToList();
+    var results2 = validator.Validate(new ModelValidationContext(actionContext, metadata, metadataProvider, container: null, model: new Person(""))).ToList();
+
+    Assert.Single(results1);
+    Assert.Single(results2);
+    Assert.Equal("Name", results1[0].MemberName);
+    Assert.Equal("name required", results1[0].Message);
+    Assert.Equal(results1[0].MemberName, results2[0].MemberName);
+    Assert.Equal(results1[0].Message, results2[0].Message);
+  }
 }
