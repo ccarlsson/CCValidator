@@ -34,7 +34,7 @@ The system is a .NET 10 class library providing:
     \item ASP.NET and DI integration
     \item Serilog logging
     \item Minimal reflection
-    \item Source-generator friendliness
+    \item Performance-focused execution (compiled delegates/regex permitted)
 \end{itemize}
 
 \subsection{Definitions}
@@ -76,7 +76,7 @@ Users are .NET developers familiar with FluentValidation, DI, and ASP.NET.
     \item Must minimize reflection
     \item Must be thread-safe
     \item Must integrate with Serilog
-    \item Must be source-generator friendly
+    \item AOT compatibility is not required (compiled delegates and compiled regex are permitted)
 \end{itemize}
 
 \subsection{Assumptions and Dependencies}
@@ -131,6 +131,7 @@ Users are .NET developers familiar with FluentValidation, DI, and ASP.NET.
     \item \textbf{NFR-1} Reflection usage shall be minimized.
     \item \textbf{NFR-2} Reflection results shall be cached.
     \item \textbf{NFR-3} The system shall use compiled delegates where possible.
+    \item \textbf{NFR-3a} Compiled regex and runtime compilation are permitted when beneficial to performance.
 \end{itemize}
 
 \subsection{Thread Safety}
@@ -145,10 +146,10 @@ Users are .NET developers familiar with FluentValidation, DI, and ASP.NET.
     \item \textbf{NFR-7} The system shall avoid hidden global state.
 \end{itemize}
 
-\subsection{Source-Generator Friendliness}
+\subsection{Source-Generator Friendliness (Optional)}
 \begin{itemize}[noitemsep]
-    \item \textbf{NFR-8} Rule definition shall be separable from execution.
-    \item \textbf{NFR-9} APIs shall exist for precompiled rule metadata.
+    \item \textbf{NFR-8 (Optional)} Rule definition should be reasonably separable from execution.
+    \item \textbf{NFR-9 (Optional)} Consider APIs for precompiled rule metadata in a future version.
 \end{itemize}
 
 \subsection{Reliability}
@@ -226,7 +227,7 @@ NFR-10--NFR-11 & SerilogAdapter, exception handling \\
 
 \section{Glossary}
 \begin{itemize}[noitemsep]
-    \item \textbf{AOT} — Ahead-of-time compilation.
+    \item \textbf{AOT} — Ahead-of-time compilation (not a requirement for v1.0).
     \item \textbf{DI} — Dependency Injection.
     \item \textbf{Pipeline} — Sequence of rule evaluations.
 \end{itemize}

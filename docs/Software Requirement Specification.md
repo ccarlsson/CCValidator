@@ -17,7 +17,7 @@ The system is a C# 14 / .NET 10 class library providing:
 - Fluent rule definition
 - Validation execution (sync + async)
 - Integration with ASP.NET and DI
-- Minimal reflection and source‑generator friendliness
+- Minimal reflection and performance-focused execution (compiled delegates/regex permitted)
 
 The library is distributed as a NuGet package.
 
@@ -62,7 +62,7 @@ Users are .NET developers familiar with FluentValidation, DI, and ASP.NET.
 - Must run on .NET 10 and C# 14
 - Must minimize reflection
 - Must be thread‑safe
-- Must be source‑generator friendly
+- AOT compatibility is not required (compiled delegates and compiled regex are permitted)
 
 ### 2.5 Assumptions and Dependencies
 
@@ -172,7 +172,7 @@ Provide ```ValidationResult``` with:
 - Minimize reflection in hot paths
 - Cache reflection results
 - Prefer compiled delegates
-- Avoid dynamic code generation incompatible with AOT
+- Performance is prioritized over AOT constraints (compiled delegates and compiled regex are permitted)
 
 ### 5.2 Thread Safety
 
@@ -185,11 +185,12 @@ Provide ```ValidationResult``` with:
 - No hidden global state
 - Provide abstractions for time‑based rules
 
-### 5.4 Source‑Generator Friendliness
+### 5.4 Optional: Source‑Generator Friendliness (Future)
 
-- Separate rule definition from execution
-- Provide APIs for precompiled rule metadata
-- Avoid runtime code emission
+Source-generator support is a nice-to-have, but is not required for v1.0.
+
+- Prefer keeping rule definition reasonably separable from execution where practical
+- Consider adding APIs for precompiled rule metadata in a future version
 
 ### 5.5 Reliability
 
