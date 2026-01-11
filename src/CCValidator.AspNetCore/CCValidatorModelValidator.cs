@@ -1,3 +1,4 @@
+using CCValidator;
 using Microsoft.AspNetCore.Mvc.ModelBinding.Validation;
 
 namespace CCValidator.AspNetCore;

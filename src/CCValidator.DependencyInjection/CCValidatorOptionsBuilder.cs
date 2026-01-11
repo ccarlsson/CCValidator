@@ -1,3 +1,5 @@
+using CCValidator;
+
 namespace CCValidator.DependencyInjection;
 
 /// <summary>

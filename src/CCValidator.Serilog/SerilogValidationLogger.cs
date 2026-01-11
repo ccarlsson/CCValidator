@@ -1,3 +1,4 @@
+using CCValidator;
 using Serilog;
 
 namespace CCValidator.Serilog;

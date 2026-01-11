@@ -11,8 +11,8 @@
 
     <!-- Centralized package/app versioning (bump here for all projects) -->
     <VersionPrefix>0.1.0</VersionPrefix>
-    <!-- Set /p:VersionSuffix=alpha.1 (or similar) for pre-release builds -->
-    <VersionSuffix Condition="'$(VersionSuffix)'==''"></VersionSuffix>
+    <!-- Default preview suffix; override in CI via /p:VersionSuffix=preview.X -->
+    <VersionSuffix Condition="'$(VersionSuffix)'==''">preview.1</VersionSuffix>
 
     <!-- Keep assembly versions stable and derived from VersionPrefix -->
     <AssemblyVersion>$(VersionPrefix).0</AssemblyVersion>
@@ -26,10 +26,11 @@
 
     <Authors>ccarlsson</Authors>
     <PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
+
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
     <RepositoryType>git</RepositoryType>
-    <!-- No git remote configured in this workspace; set these when publishing -->
-    <RepositoryUrl Condition="'$(RepositoryUrl)'==''"></RepositoryUrl>
-    <PackageProjectUrl Condition="'$(PackageProjectUrl)'==''"></PackageProjectUrl>
+    <RepositoryUrl Condition="'$(RepositoryUrl)'==''">https://github.com/ccarlsson/CCValidator</RepositoryUrl>
+    <PackageProjectUrl Condition="'$(PackageProjectUrl)'==''">https://github.com/ccarlsson/CCValidator</PackageProjectUrl>
 
     <PackageReadmeFile>README.md</PackageReadmeFile>
     <PackageReleaseNotes>See COMPATIBILITY.md for compatibility notes and deviations.</PackageReleaseNotes>
