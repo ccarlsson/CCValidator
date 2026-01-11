@@ -33,5 +33,6 @@ var result = validator.Validate(new Person(""));
 - `docs/Localization.md`
 - `docs/Logging.md`
 - `docs/MigrationFromFluentValidation.md`
+- [Getting Started](docs/GettingStated.md)
 
 See `COMPATIBILITY.md` for differences vs FluentValidation.
