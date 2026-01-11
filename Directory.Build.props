@@ -11,13 +11,14 @@
 
     <!-- Centralized package/app versioning (bump here for all projects) -->
     <VersionPrefix>0.1.0</VersionPrefix>
-    <!-- Default preview suffix; override in CI via /p:VersionSuffix=preview.X -->
+    <!-- Default preview suffix; override in CI via /p:VersionSuffix=preview.X (or set /p:Version=...) -->
     <VersionSuffix Condition="'$(VersionSuffix)'==''">preview.1</VersionSuffix>
 
     <!-- Keep assembly versions stable and derived from VersionPrefix -->
     <AssemblyVersion>$(VersionPrefix).0</AssemblyVersion>
     <FileVersion>$(VersionPrefix).0</FileVersion>
-    <InformationalVersion>$(Version)</InformationalVersion>
+    <InformationalVersion Condition="'$(SourceRevisionId)' != ''">$(Version)+$(SourceRevisionId)</InformationalVersion>
+    <InformationalVersion Condition="'$(SourceRevisionId)' == ''">$(Version)</InformationalVersion>
 
     <!-- NuGet packaging defaults (projects can override as needed) -->
     <IncludeSymbols>true</IncludeSymbols>

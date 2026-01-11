@@ -1,0 +1,10 @@
+<Project>
+  <!-- Intentionally empty.
+
+       Versioning for preview packages is controlled via MSBuild properties:
+         - /p:Version=0.1.0-preview.3 (full override)
+         - /p:VersionSuffix=preview.3 (suffix override)
+
+       Keep this file so future build extensions can be added without changing project files.
+  -->
+</Project>
