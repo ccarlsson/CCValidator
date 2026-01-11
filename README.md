@@ -26,13 +26,12 @@ var result = validator.Validate(new Person(""));
 
 ## Docs
 
-- `docs/GettingStarted.md`
+- [Getting Started](docs/GettingStarted.md)
 - `docs/ApiReference.md`
 - `docs/AspNetCore.md`
 - `docs/DependencyInjection.md`
 - `docs/Localization.md`
 - `docs/Logging.md`
 - `docs/MigrationFromFluentValidation.md`
-- [Getting Started](docs/GettingStated.md)
 
 See `COMPATIBILITY.md` for differences vs FluentValidation.
