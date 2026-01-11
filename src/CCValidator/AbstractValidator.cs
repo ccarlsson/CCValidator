@@ -10,6 +10,8 @@ public abstract class AbstractValidator<T> : IValidator<T>
 
   public CascadeMode CascadeMode { get; set; } = CascadeMode.Continue;
 
+  public IValidationMessageProvider MessageProvider { get; set; } = DefaultValidationMessageProvider.Instance;
+
   protected IRuleBuilderInitial<T, TProperty> RuleFor<TProperty>(Expression<Func<T, TProperty>> expression)
   {
     var propertyName = ExpressionHelpers.GetPropertyName(expression);
@@ -26,7 +28,7 @@ public abstract class AbstractValidator<T> : IValidator<T>
 
     _rules.Add(rule);
 
-    return new RuleBuilder<T, TProperty>(rule);
+    return new RuleBuilder<T, TProperty>(rule, MessageProvider);
   }
 
   protected void RuleSet(string ruleSetName, Action action)

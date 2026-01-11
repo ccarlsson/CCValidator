@@ -54,14 +54,16 @@ public interface IRuleBuilderOptions<T, TProperty> : IRuleBuilderInitial<T, TPro
 internal sealed class RuleBuilder<T, TProperty> : IRuleBuilderOptions<T, TProperty>
 {
   private readonly PropertyRule<T, TProperty> _rule;
+  private readonly IValidationMessageProvider _messages;
 
   private static readonly Regex EmailRegex = new(
     @"^[^@\s]+@[^@\s]+\.[^@\s]+$",
     RegexOptions.Compiled | RegexOptions.CultureInvariant);
 
-  public RuleBuilder(PropertyRule<T, TProperty> rule)
+  public RuleBuilder(PropertyRule<T, TProperty> rule, IValidationMessageProvider messages)
   {
     _rule = rule;
+    _messages = messages;
   }
 
   public IRuleBuilderInitial<T, TProperty> Cascade(CascadeMode cascadeMode)
@@ -86,13 +88,13 @@ internal sealed class RuleBuilder<T, TProperty> : IRuleBuilderOptions<T, TProper
 
   public IRuleBuilderOptions<T, TProperty> NotNull()
   {
-    _rule.AddValidator(static v => v is not null, "must not be null");
+    _rule.AddValidator(static v => v is not null, _messages.NotNull());
     return this;
   }
 
   public IRuleBuilderOptions<T, TProperty> Equal(TProperty comparisonValue)
   {
-    _rule.AddValidator(v => Equals(v, comparisonValue), "must be equal to the specified value");
+    _rule.AddValidator(v => Equals(v, comparisonValue), _messages.Equal());
     return this;
   }
 
@@ -101,13 +103,13 @@ internal sealed class RuleBuilder<T, TProperty> : IRuleBuilderOptions<T, TProper
     ArgumentNullException.ThrowIfNull(comparisonExpression);
     var getter = comparisonExpression.Compile();
 
-    _rule.AddValidator((instance, v) => Equals(v, getter(instance)), "must be equal to the specified value");
+    _rule.AddValidator((instance, v) => Equals(v, getter(instance)), _messages.Equal());
     return this;
   }
 
   public IRuleBuilderOptions<T, TProperty> NotEqual(TProperty comparisonValue)
   {
-    _rule.AddValidator(v => !Equals(v, comparisonValue), "must not be equal to the specified value");
+    _rule.AddValidator(v => !Equals(v, comparisonValue), _messages.NotEqual());
     return this;
   }
 
@@ -116,14 +118,14 @@ internal sealed class RuleBuilder<T, TProperty> : IRuleBuilderOptions<T, TProper
     ArgumentNullException.ThrowIfNull(comparisonExpression);
     var getter = comparisonExpression.Compile();
 
-    _rule.AddValidator((instance, v) => !Equals(v, getter(instance)), "must not be equal to the specified value");
+    _rule.AddValidator((instance, v) => !Equals(v, getter(instance)), _messages.NotEqual());
     return this;
   }
 
   public IRuleBuilderOptions<T, TProperty> GreaterThan(TProperty value)
   {
     if (value is null) throw new ArgumentNullException(nameof(value));
-    _rule.AddValidator(v => v is null || CompareObjects(v, value) > 0, "must be greater than the specified value");
+    _rule.AddValidator(v => v is null || CompareObjects(v, value) > 0, _messages.GreaterThan());
     return this;
   }
 
@@ -140,14 +142,14 @@ internal sealed class RuleBuilder<T, TProperty> : IRuleBuilderOptions<T, TProper
         if (other is null) return true;
         return CompareObjects(v, other) > 0;
       },
-      "must be greater than the specified value");
+      _messages.GreaterThan());
     return this;
   }
 
   public IRuleBuilderOptions<T, TProperty> GreaterThanOrEqualTo(TProperty value)
   {
     if (value is null) throw new ArgumentNullException(nameof(value));
-    _rule.AddValidator(v => v is null || CompareObjects(v, value) >= 0, "must be greater than or equal to the specified value");
+    _rule.AddValidator(v => v is null || CompareObjects(v, value) >= 0, _messages.GreaterThanOrEqualTo());
     return this;
   }
 
@@ -164,14 +166,14 @@ internal sealed class RuleBuilder<T, TProperty> : IRuleBuilderOptions<T, TProper
         if (other is null) return true;
         return CompareObjects(v, other) >= 0;
       },
-      "must be greater than or equal to the specified value");
+      _messages.GreaterThanOrEqualTo());
     return this;
   }
 
   public IRuleBuilderOptions<T, TProperty> LessThan(TProperty value)
   {
     if (value is null) throw new ArgumentNullException(nameof(value));
-    _rule.AddValidator(v => v is null || CompareObjects(v, value) < 0, "must be less than the specified value");
+    _rule.AddValidator(v => v is null || CompareObjects(v, value) < 0, _messages.LessThan());
     return this;
   }
 
@@ -188,14 +190,14 @@ internal sealed class RuleBuilder<T, TProperty> : IRuleBuilderOptions<T, TProper
         if (other is null) return true;
         return CompareObjects(v, other) < 0;
       },
-      "must be less than the specified value");
+      _messages.LessThan());
     return this;
   }
 
   public IRuleBuilderOptions<T, TProperty> LessThanOrEqualTo(TProperty value)
   {
     if (value is null) throw new ArgumentNullException(nameof(value));
-    _rule.AddValidator(v => v is null || CompareObjects(v, value) <= 0, "must be less than or equal to the specified value");
+    _rule.AddValidator(v => v is null || CompareObjects(v, value) <= 0, _messages.LessThanOrEqualTo());
     return this;
   }
 
@@ -212,7 +214,7 @@ internal sealed class RuleBuilder<T, TProperty> : IRuleBuilderOptions<T, TProper
         if (other is null) return true;
         return CompareObjects(v, other) <= 0;
       },
-      "must be less than or equal to the specified value");
+      _messages.LessThanOrEqualTo());
     return this;
   }
 
@@ -223,7 +225,7 @@ internal sealed class RuleBuilder<T, TProperty> : IRuleBuilderOptions<T, TProper
 
     _rule.AddValidator(
       v => v is null || (CompareObjects(v, from) >= 0 && CompareObjects(v, to) <= 0),
-      "must be between the specified values (inclusive)");
+      _messages.InclusiveBetween());
     return this;
   }
 
@@ -234,7 +236,7 @@ internal sealed class RuleBuilder<T, TProperty> : IRuleBuilderOptions<T, TProper
 
     _rule.AddValidator(
       v => v is null || (CompareObjects(v, from) > 0 && CompareObjects(v, to) < 0),
-      "must be between the specified values (exclusive)");
+      _messages.ExclusiveBetween());
     return this;
   }
 
@@ -244,7 +246,7 @@ internal sealed class RuleBuilder<T, TProperty> : IRuleBuilderOptions<T, TProper
 
     _rule.AddValidator(
       v => v is null ? predicate(default!) : predicate((TProperty)v),
-      "is not valid");
+      _messages.Must());
 
     return this;
   }
@@ -259,14 +261,14 @@ internal sealed class RuleBuilder<T, TProperty> : IRuleBuilderOptions<T, TProper
         if (v is null) return await predicate(default!, ct).ConfigureAwait(false);
         return await predicate((TProperty)v, ct).ConfigureAwait(false);
       },
-      "is not valid");
+      _messages.Must());
 
     return this;
   }
 
   public IRuleBuilderOptions<T, TProperty> NotEmpty()
   {
-    _rule.AddValidator(NotEmptyImpl, "must not be empty");
+    _rule.AddValidator(NotEmptyImpl, _messages.NotEmpty());
     return this;
 
     static bool NotEmptyImpl(object? value)
@@ -297,19 +299,19 @@ internal sealed class RuleBuilder<T, TProperty> : IRuleBuilderOptions<T, TProper
 
   public IRuleBuilderOptions<T, TProperty> MaximumLength(int maximumLength)
   {
-    _rule.AddValidator(v => v is null || GetLength(v) <= maximumLength, $"must be {maximumLength} characters or fewer");
+    _rule.AddValidator(v => v is null || GetLength(v) <= maximumLength, _messages.MaximumLength(maximumLength));
     return this;
   }
 
   public IRuleBuilderOptions<T, TProperty> MinimumLength(int minimumLength)
   {
-    _rule.AddValidator(v => v is null || GetLength(v) >= minimumLength, $"must be {minimumLength} characters or more");
+    _rule.AddValidator(v => v is null || GetLength(v) >= minimumLength, _messages.MinimumLength(minimumLength));
     return this;
   }
 
   public IRuleBuilderOptions<T, TProperty> Length(int minimumLength, int maximumLength)
   {
-    _rule.AddValidator(v => v is null || (GetLength(v) >= minimumLength && GetLength(v) <= maximumLength), $"must be between {minimumLength} and {maximumLength} characters");
+    _rule.AddValidator(v => v is null || (GetLength(v) >= minimumLength && GetLength(v) <= maximumLength), _messages.Length(minimumLength, maximumLength));
     return this;
   }
 
@@ -327,13 +329,13 @@ internal sealed class RuleBuilder<T, TProperty> : IRuleBuilderOptions<T, TProper
   public IRuleBuilderOptions<T, TProperty> Matches(Regex regex)
   {
     ArgumentNullException.ThrowIfNull(regex);
-    _rule.AddValidator(v => v is null || (v is string s && regex.IsMatch(s)), "is not in the correct format");
+    _rule.AddValidator(v => v is null || (v is string s && regex.IsMatch(s)), _messages.Matches());
     return this;
   }
 
   public IRuleBuilderOptions<T, TProperty> EmailAddress()
   {
-    _rule.AddValidator(v => v is null || (v is string s && EmailRegex.IsMatch(s)), "is not a valid email address");
+    _rule.AddValidator(v => v is null || (v is string s && EmailRegex.IsMatch(s)), _messages.EmailAddress());
     return this;
   }
 
