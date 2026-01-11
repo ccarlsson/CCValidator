@@ -10,6 +10,7 @@ public abstract class AbstractValidator<T> : IValidator<T>
   private readonly List<IRule<T>> _rules = [];
   private readonly Stack<Func<T, bool>> _conditionStack = new();
   private readonly Stack<string> _ruleSetStack = new();
+  private readonly Stack<IDependentRuleHost<T>> _dependentRuleHostStack = new();
   private readonly CCValidatorOptions _options;
 
   protected AbstractValidator()
@@ -53,9 +54,9 @@ public abstract class AbstractValidator<T> : IValidator<T>
         rule.ApplyCondition(condition);
     }
 
-    _rules.Add(rule);
+    AddRule(rule);
 
-    return new RuleBuilder<T, TProperty>(rule, MessageProvider);
+    return new RuleBuilder<T, TProperty>(rule, MessageProvider, RunDependentRulesScope);
   }
 
   /// <summary>
@@ -80,9 +81,9 @@ public abstract class AbstractValidator<T> : IValidator<T>
         rule.ApplyCondition(condition);
     }
 
-    _rules.Add(rule);
+    AddRule(rule);
 
-    return new RuleBuilder<T, TElement>(rule, MessageProvider);
+    return new RuleBuilder<T, TElement>(rule, MessageProvider, RunDependentRulesScope);
   }
 
   /// <summary>
@@ -101,7 +102,31 @@ public abstract class AbstractValidator<T> : IValidator<T>
         rule.ApplyCondition(condition);
     }
 
+    AddRule(rule);
+  }
+
+  private void AddRule(IRule<T> rule)
+  {
+    if (_dependentRuleHostStack.Count != 0)
+    {
+      _dependentRuleHostStack.Peek().AddDependentRule(rule);
+      return;
+    }
+
     _rules.Add(rule);
+  }
+
+  private void RunDependentRulesScope(IDependentRuleHost<T> host, Action action)
+  {
+    _dependentRuleHostStack.Push(host);
+    try
+    {
+      action();
+    }
+    finally
+    {
+      _dependentRuleHostStack.Pop();
+    }
   }
 
   /// <summary>

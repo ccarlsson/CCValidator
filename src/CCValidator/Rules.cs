@@ -91,6 +91,17 @@ public interface IRuleBuilderOptions<T, TProperty> : IRuleBuilderInitial<T, TPro
   /// Overrides the error code for the most recently added validator.
   /// </summary>
   IRuleBuilderOptions<T, TProperty> WithErrorCode(string errorCode);
+
+  /// <summary>
+  /// Defines dependent rules that are only executed if this rule produces no failures.
+  /// </summary>
+  /// <param name="action">Action that defines dependent rules.</param>
+  IRuleBuilderOptions<T, TProperty> DependentRules(Action action);
+}
+
+internal interface IDependentRuleHost<T>
+{
+  void AddDependentRule(IRule<T> rule);
 }
 
 internal interface IRuleInternal<T, TProperty>
@@ -116,15 +127,20 @@ internal sealed class RuleBuilder<T, TProperty> : IRuleBuilderOptions<T, TProper
 {
   private readonly IRuleInternal<T, TProperty> _rule;
   private readonly IValidationMessageProvider _messages;
+  private readonly Action<IDependentRuleHost<T>, Action>? _dependentRulesRunner;
 
   private static readonly Regex EmailRegex = new(
     @"^[^@\s]+@[^@\s]+\.[^@\s]+$",
     RegexOptions.Compiled | RegexOptions.CultureInvariant);
 
-  public RuleBuilder(IRuleInternal<T, TProperty> rule, IValidationMessageProvider messages)
+  public RuleBuilder(
+    IRuleInternal<T, TProperty> rule,
+    IValidationMessageProvider messages,
+    Action<IDependentRuleHost<T>, Action>? dependentRulesRunner = null)
   {
     _rule = rule;
     _messages = messages;
+    _dependentRulesRunner = dependentRulesRunner;
   }
 
   public IRuleBuilderInitial<T, TProperty> Cascade(CascadeMode cascadeMode)
@@ -426,6 +442,20 @@ internal sealed class RuleBuilder<T, TProperty> : IRuleBuilderOptions<T, TProper
     return this;
   }
 
+  public IRuleBuilderOptions<T, TProperty> DependentRules(Action action)
+  {
+    ArgumentNullException.ThrowIfNull(action);
+
+    if (_dependentRulesRunner is null)
+      throw new InvalidOperationException("DependentRules is not available in this context.");
+
+    if (_rule is not IDependentRuleHost<T> host)
+      throw new InvalidOperationException("DependentRules is only supported for rules that can host dependent rules.");
+
+    _dependentRulesRunner(host, action);
+    return this;
+  }
+
   private static int GetLength(object value)
   {
     if (LengthAccessorCache.TryGetLength(value, out var length))
@@ -497,7 +527,7 @@ internal static class LengthAccessorCache
 }
 
 internal sealed class PropertyRule<T, TProperty>
-  : IRule<T>, IRuleInternal<T, TProperty>
+  : IRule<T>, IRuleInternal<T, TProperty>, IDependentRuleHost<T>
 {
   private readonly Func<T, TProperty> _getter;
   private Func<T, bool>? _condition;
@@ -507,6 +537,7 @@ internal sealed class PropertyRule<T, TProperty>
   private readonly List<AsyncPropertyValidator> _asyncValidators = [];
   private readonly List<ChildValidatorRunner> _childValidators = [];
   private readonly List<ValidatorSlot> _slots = [];
+  private readonly List<IRule<T>> _dependentRules = [];
 
   public PropertyRule(string propertyName, Func<T, TProperty> getter, CascadeMode cascadeMode, string? ruleSet, CCValidatorOptions options)
   {
@@ -563,6 +594,12 @@ internal sealed class PropertyRule<T, TProperty>
       Validate: value => validator.Validate((TChild)value),
       ValidateAsync: (value, token) => validator.ValidateAsync((TChild)value, token)));
     _slots.Add(ValidatorSlot.ForChild(_childValidators.Count - 1));
+  }
+
+  public void AddDependentRule(IRule<T> rule)
+  {
+    ArgumentNullException.ThrowIfNull(rule);
+    _dependentRules.Add(rule);
   }
 
   public void SetMessageOverrideForLastValidator(string message)
@@ -654,6 +691,8 @@ internal sealed class PropertyRule<T, TProperty>
 
     object? boxed = value;
 
+    var anyFailures = false;
+
     foreach (var slot in _slots)
     {
       switch (slot.Kind)
@@ -677,6 +716,7 @@ internal sealed class PropertyRule<T, TProperty>
 
             if (predicateFailure is not null)
             {
+              anyFailures = true;
               yield return predicateFailure;
               if (CascadeMode == CascadeMode.Stop)
                 yield break;
@@ -685,6 +725,7 @@ internal sealed class PropertyRule<T, TProperty>
 
             if (ok) break;
 
+            anyFailures = true;
             yield return new ValidationFailure(PropertyName, validator.EffectiveMessage)
             {
               AttemptedValue = boxed,
@@ -718,6 +759,7 @@ internal sealed class PropertyRule<T, TProperty>
 
             if (childExceptionFailure is not null)
             {
+              anyFailures = true;
               yield return childExceptionFailure;
               if (CascadeMode == CascadeMode.Stop)
                 yield break;
@@ -731,6 +773,9 @@ internal sealed class PropertyRule<T, TProperty>
               yield return PrefixFailure(PropertyName, failure);
             }
 
+            if (any)
+              anyFailures = true;
+
             if (any && CascadeMode == CascadeMode.Stop)
               yield break;
 
@@ -742,6 +787,15 @@ internal sealed class PropertyRule<T, TProperty>
 
         default:
           throw new InvalidOperationException($"Unknown validator slot kind: {slot.Kind}.");
+      }
+    }
+
+    if (!anyFailures && _dependentRules.Count != 0)
+    {
+      foreach (var rule in _dependentRules)
+      {
+        foreach (var failure in rule.Validate(instance))
+          yield return failure;
       }
     }
   }
@@ -896,6 +950,12 @@ internal sealed class PropertyRule<T, TProperty>
       }
     }
 
+    if (failures.Count == 0 && _dependentRules.Count != 0)
+    {
+      foreach (var rule in _dependentRules)
+        failures.AddRange(await rule.ValidateAsync(instance, token).ConfigureAwait(false));
+    }
+
     return failures;
   }
 
@@ -1000,7 +1060,7 @@ internal sealed class PropertyRule<T, TProperty>
 }
 
 internal sealed class ForEachRule<T, TElement>
-  : IRule<T>, IRuleInternal<T, TElement>
+  : IRule<T>, IRuleInternal<T, TElement>, IDependentRuleHost<T>
 {
   private readonly Func<T, IEnumerable<TElement>> _getter;
   private Func<T, bool>? _condition;
@@ -1010,6 +1070,7 @@ internal sealed class ForEachRule<T, TElement>
   private readonly List<AsyncElementValidator> _asyncValidators = [];
   private readonly List<ChildValidatorRunner> _childValidators = [];
   private readonly List<ValidatorSlot> _slots = [];
+  private readonly List<IRule<T>> _dependentRules = [];
 
   public ForEachRule(string propertyName, Func<T, IEnumerable<TElement>> getter, CascadeMode cascadeMode, string? ruleSet, CCValidatorOptions options)
   {
@@ -1067,6 +1128,12 @@ internal sealed class ForEachRule<T, TElement>
       Validate: value => validator.Validate((TChild)value),
       ValidateAsync: (value, token) => validator.ValidateAsync((TChild)value, token)));
     _slots.Add(ValidatorSlot.ForChild(_childValidators.Count - 1));
+  }
+
+  public void AddDependentRule(IRule<T> rule)
+  {
+    ArgumentNullException.ThrowIfNull(rule);
+    _dependentRules.Add(rule);
   }
 
   public void SetMessageOverrideForLastValidator(string message)
@@ -1157,6 +1224,8 @@ internal sealed class ForEachRule<T, TElement>
     if (values is null)
       yield break;
 
+    var anyFailures = false;
+
     var index = 0;
 
     IEnumerator<TElement> enumerator;
@@ -1216,83 +1285,89 @@ internal sealed class ForEachRule<T, TElement>
           switch (slot.Kind)
           {
             case ValidatorSlotKind.Sync:
-            {
-              var validator = _validators[slot.Index];
+              {
+                var validator = _validators[slot.Index];
 
-              bool ok;
-              ValidationFailure? predicateFailure = null;
-              try
-              {
-                ok = validator.Predicate(instance, boxed);
-              }
-              catch (Exception ex)
-              {
-                if (ShouldThrow(ex)) throw;
-                ok = false;
-                predicateFailure = CreateInternalFailure(ex, boxed, elementPropertyName);
-              }
+                bool ok;
+                ValidationFailure? predicateFailure = null;
+                try
+                {
+                  ok = validator.Predicate(instance, boxed);
+                }
+                catch (Exception ex)
+                {
+                  if (ShouldThrow(ex)) throw;
+                  ok = false;
+                  predicateFailure = CreateInternalFailure(ex, boxed, elementPropertyName);
+                }
 
-              if (predicateFailure is not null)
-              {
-                yield return predicateFailure;
+                if (predicateFailure is not null)
+                {
+                  anyFailures = true;
+                  yield return predicateFailure;
+                  if (CascadeMode == CascadeMode.Stop)
+                    stopElement = true;
+                  break;
+                }
+
+                if (ok) break;
+
+                anyFailures = true;
+                yield return new ValidationFailure(elementPropertyName, validator.EffectiveMessage)
+                {
+                  AttemptedValue = boxed,
+                  ErrorCode = validator.ErrorCodeOverride,
+                };
+
                 if (CascadeMode == CascadeMode.Stop)
                   stopElement = true;
+
                 break;
               }
-
-              if (ok) break;
-
-              yield return new ValidationFailure(elementPropertyName, validator.EffectiveMessage)
-              {
-                AttemptedValue = boxed,
-                ErrorCode = validator.ErrorCodeOverride,
-              };
-
-              if (CascadeMode == CascadeMode.Stop)
-                stopElement = true;
-
-              break;
-            }
 
             case ValidatorSlotKind.Child:
-            {
-              if (boxed is null)
-                break;
-
-              var childValidator = _childValidators[slot.Index];
-
-              ValidationResult? childResult = null;
-              ValidationFailure? childExceptionFailure = null;
-              try
               {
-                childResult = childValidator.Validate(boxed);
-              }
-              catch (Exception ex)
-              {
-                if (ShouldThrow(ex)) throw;
-                childExceptionFailure = CreateInternalFailure(ex, boxed, elementPropertyName);
-              }
+                if (boxed is null)
+                  break;
 
-              if (childExceptionFailure is not null)
-              {
-                yield return childExceptionFailure;
-                if (CascadeMode == CascadeMode.Stop)
+                var childValidator = _childValidators[slot.Index];
+
+                ValidationResult? childResult = null;
+                ValidationFailure? childExceptionFailure = null;
+                try
+                {
+                  childResult = childValidator.Validate(boxed);
+                }
+                catch (Exception ex)
+                {
+                  if (ShouldThrow(ex)) throw;
+                  childExceptionFailure = CreateInternalFailure(ex, boxed, elementPropertyName);
+                }
+
+                if (childExceptionFailure is not null)
+                {
+                  anyFailures = true;
+                  yield return childExceptionFailure;
+                  if (CascadeMode == CascadeMode.Stop)
+                    stopElement = true;
+                  break;
+                }
+
+                var any = false;
+                foreach (var failure in childResult!.Errors)
+                {
+                  any = true;
+                  yield return PrefixFailure(elementPropertyName, failure);
+                }
+
+                if (any)
+                  anyFailures = true;
+
+                if (any && CascadeMode == CascadeMode.Stop)
                   stopElement = true;
+
                 break;
               }
-
-              var any = false;
-              foreach (var failure in childResult!.Errors)
-              {
-                any = true;
-                yield return PrefixFailure(elementPropertyName, failure);
-              }
-
-              if (any && CascadeMode == CascadeMode.Stop)
-                stopElement = true;
-
-              break;
-            }
 
             case ValidatorSlotKind.Async:
               throw new InvalidOperationException("This validator contains async rules and must be executed with ValidateAsync.");
@@ -1303,6 +1378,15 @@ internal sealed class ForEachRule<T, TElement>
         }
 
         index++;
+      }
+    }
+
+    if (!anyFailures && _dependentRules.Count != 0)
+    {
+      foreach (var rule in _dependentRules)
+      {
+        foreach (var failure in rule.Validate(instance))
+          yield return failure;
       }
     }
   }
@@ -1387,107 +1471,107 @@ internal sealed class ForEachRule<T, TElement>
           switch (slot.Kind)
           {
             case ValidatorSlotKind.Sync:
-            {
-              var validator = _validators[slot.Index];
-
-              bool ok;
-              try
               {
-                ok = validator.Predicate(instance, boxed);
-              }
-              catch (Exception ex)
-              {
-                if (ShouldThrow(ex, token)) throw;
+                var validator = _validators[slot.Index];
 
-                failures.Add(CreateInternalFailure(ex, boxed, elementPropertyName));
+                bool ok;
+                try
+                {
+                  ok = validator.Predicate(instance, boxed);
+                }
+                catch (Exception ex)
+                {
+                  if (ShouldThrow(ex, token)) throw;
+
+                  failures.Add(CreateInternalFailure(ex, boxed, elementPropertyName));
+                  if (CascadeMode == CascadeMode.Stop)
+                    goto NextElement;
+
+                  break;
+                }
+
+                if (ok) break;
+
+                failures.Add(new ValidationFailure(elementPropertyName, validator.EffectiveMessage)
+                {
+                  AttemptedValue = boxed,
+                  ErrorCode = validator.ErrorCodeOverride,
+                });
+
                 if (CascadeMode == CascadeMode.Stop)
                   goto NextElement;
 
                 break;
               }
-
-              if (ok) break;
-
-              failures.Add(new ValidationFailure(elementPropertyName, validator.EffectiveMessage)
-              {
-                AttemptedValue = boxed,
-                ErrorCode = validator.ErrorCodeOverride,
-              });
-
-              if (CascadeMode == CascadeMode.Stop)
-                goto NextElement;
-
-              break;
-            }
 
             case ValidatorSlotKind.Async:
-            {
-              var validator = _asyncValidators[slot.Index];
-
-              bool ok;
-              try
               {
-                ok = await validator.Predicate(boxed, token).ConfigureAwait(false);
-              }
-              catch (Exception ex)
-              {
-                if (ShouldThrow(ex, token)) throw;
+                var validator = _asyncValidators[slot.Index];
 
-                failures.Add(CreateInternalFailure(ex, boxed, elementPropertyName));
+                bool ok;
+                try
+                {
+                  ok = await validator.Predicate(boxed, token).ConfigureAwait(false);
+                }
+                catch (Exception ex)
+                {
+                  if (ShouldThrow(ex, token)) throw;
+
+                  failures.Add(CreateInternalFailure(ex, boxed, elementPropertyName));
+                  if (CascadeMode == CascadeMode.Stop)
+                    goto NextElement;
+
+                  break;
+                }
+
+                if (ok) break;
+
+                failures.Add(new ValidationFailure(elementPropertyName, validator.EffectiveMessage)
+                {
+                  AttemptedValue = boxed,
+                  ErrorCode = validator.ErrorCodeOverride,
+                });
+
                 if (CascadeMode == CascadeMode.Stop)
                   goto NextElement;
 
                 break;
               }
-
-              if (ok) break;
-
-              failures.Add(new ValidationFailure(elementPropertyName, validator.EffectiveMessage)
-              {
-                AttemptedValue = boxed,
-                ErrorCode = validator.ErrorCodeOverride,
-              });
-
-              if (CascadeMode == CascadeMode.Stop)
-                goto NextElement;
-
-              break;
-            }
 
             case ValidatorSlotKind.Child:
-            {
-              if (boxed is null)
-                break;
-
-              var childValidator = _childValidators[slot.Index];
-
-              ValidationResult childResult;
-              try
               {
-                childResult = await childValidator.ValidateAsync(boxed, token).ConfigureAwait(false);
-              }
-              catch (Exception ex)
-              {
-                if (ShouldThrow(ex, token)) throw;
+                if (boxed is null)
+                  break;
 
-                failures.Add(CreateInternalFailure(ex, boxed, elementPropertyName));
+                var childValidator = _childValidators[slot.Index];
+
+                ValidationResult childResult;
+                try
+                {
+                  childResult = await childValidator.ValidateAsync(boxed, token).ConfigureAwait(false);
+                }
+                catch (Exception ex)
+                {
+                  if (ShouldThrow(ex, token)) throw;
+
+                  failures.Add(CreateInternalFailure(ex, boxed, elementPropertyName));
+                  if (CascadeMode == CascadeMode.Stop)
+                    goto NextElement;
+
+                  break;
+                }
+
+                if (childResult.Errors.Count == 0)
+                  break;
+
+                foreach (var failure in childResult.Errors)
+                  failures.Add(PrefixFailure(elementPropertyName, failure));
+
                 if (CascadeMode == CascadeMode.Stop)
                   goto NextElement;
 
                 break;
               }
-
-              if (childResult.Errors.Count == 0)
-                break;
-
-              foreach (var failure in childResult.Errors)
-                failures.Add(PrefixFailure(elementPropertyName, failure));
-
-              if (CascadeMode == CascadeMode.Stop)
-                goto NextElement;
-
-              break;
-            }
 
             default:
               throw new InvalidOperationException($"Unknown validator slot kind: {slot.Kind}.");
@@ -1497,6 +1581,12 @@ internal sealed class ForEachRule<T, TElement>
       NextElement:
         index++;
       }
+    }
+
+    if (failures.Count == 0 && _dependentRules.Count != 0)
+    {
+      foreach (var rule in _dependentRules)
+        failures.AddRange(await rule.ValidateAsync(instance, token).ConfigureAwait(false));
     }
 
     return failures;
