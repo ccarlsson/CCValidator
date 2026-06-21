@@ -80,6 +80,5 @@ RuleFor(x => x.Password)
       .MinimumLength(12);
   });
 ```
-```
 
 For DI and ASP.NET Core usage, see `docs/DependencyInjection.md` and `docs/AspNetCore.md`.
