@@ -1,6 +1,7 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
+    <TargetFrameworks>net8.0;net9.0;net10.0</TargetFrameworks>
     <PackageId>CCValidator</PackageId>
     <Description>FluentValidation-inspired validation library for .NET 10 (core engine).</Description>
   </PropertyGroup>
