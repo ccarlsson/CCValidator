@@ -25,6 +25,7 @@
     <EmbedUntrackedSources>true</EmbedUntrackedSources>
 
     <Authors>ccarlsson</Authors>
+    <PackageCopyright>Copyright (c) 2026 ccarlsson</PackageCopyright>
     <PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
 
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
